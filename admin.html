@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de Administración</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+    :root {
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --accent: #2563eb;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --success: #16a34a;
+    --warning: #ca8a04;
+    --danger: #dc2626;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text); padding: 20px; display: flex; justify-content: center; }
+    .container { max-width: 900px; width: 100%; display: flex; flex-direction: column; gap: 20px; }
+
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 15px; }
+    header h1 { font-size: 1.8rem; color: #38bdf8; }
+    .btn-back { background: #334155; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; text-decoration: none; font-size: 0.9rem; }
+
+    .card { background: var(--card-bg); border-radius: 12px; padding: 20px; border: 1px solid #334155; }
+    .card h2 { font-size: 1.2rem; margin-bottom: 15px; color: #38bdf8; display: flex; align-items: center; gap: 8px; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+    th { text-align: left; padding: 10px; border-bottom: 1px solid #334155; color: var(--text-muted); }
+    td { padding: 12px 10px; border-bottom: 1px solid #0f172a; vertical-align: middle; }
+
+    .btn-action { padding: 6px 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.8rem; margin-right: 5px; }
+    .btn-approve { background: var(--success); color: white; }
+    .btn-admin { background: var(--accent); color: white; }
+    .btn-reject { background: var(--danger); color: white; }
+    .btn-close-table { background: var(--warning); color: white; }
+
+    .badge { padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+    .badge-pendiente { background: #a16207; color: white; }
+    .badge-aprobado { background: #15803d; color: white; }
+    .badge-bloqueado { background: #dc2626; color: white; }
+
+    .empty-msg { color: var(--text-muted); font-size: 0.9rem; padding: 10px 0; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+    <h1>⚙️ Panel de Administración</h1>
+    <a href="index.html" class="btn-back">← Volver al Inicio</a>
+    </header>
+
+    <div class="card">
+    <h2>👤 Usuarios Pendientes de Aprobación</h2>
+    <div id="contenedor-pendientes">
+        <p class="empty-msg">Cargando solicitudes...</p>
+    </div>
+    </div>
+
+    <div class="card">
+    <h2>🀄 Control de Mesas Activas</h2>
+    <div id="contenedor-mesas">
+        <p class="empty-msg">Cargando mesas...</p>
+    </div>
+    </div>
+
+    <div class="card">
+    <h2>📋 Directorio de Usuarios</h2>
+    <div id="contenedor-usuarios">
+        <p class="empty-msg">Cargando directorio...</p>
+    </div>
+    </div>
+</div>
+
+<script>
+    const SUPABASE_URL = 'https://kzbslfwupzwczmjqfjem.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6YnNsZnd1cHp3Y3ptanFmamVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDI1MzksImV4cCI6MjEwMjcxODUzOX0.qeeh2FV3zKRet-jRMVvJUwBm9jYHsLbWSYWIao574qc';
+
+    var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    window.addEventListener('DOMContentLoaded', async () => {
+    const esAdmin = await verificarAccesoAdmin();
+    if (esAdmin) {
+        cargarSolicitudesPendientes();
+        cargarMesasAbiertas();
+        cargarDirectorioUsuarios();
+    }
+    });
+
+    async function verificarAccesoAdmin() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        alert('Debes iniciar sesión para acceder al panel de administración.');
+        window.location.href = 'index.html';
+        return false;
+    }
+
+    const { data: perfil, error } = await supabase
+        .from('perfiles')
+        .select('rol')
+        .eq('id', session.user.id)
+        .single();
+
+    if (error || !perfil || perfil.rol !== 'admin') {
+        alert('Acceso denegado: Se requieren permisos de Administrador.');
+        window.location.href = 'index.html';
+        return false;
+    }
+
+    return true;
+    }
+
+    async function cargarSolicitudesPendientes() {
+    const cont = document.getElementById('contenedor-pendientes');
+    
+    const { data: pendientes, error } = await supabase
+        .from('perfiles')
+        .select('*')
+        .eq('estado', 'pendiente')
+        .order('creado_en', { ascending: true });
+
+    if (error) {
+        cont.innerHTML = `<p style="color:var(--danger)">Error: ${error.message}</p>`;
+        return;
+    }
+
+    if (!pendientes || pendientes.length === 0) {
+        cont.innerHTML = '<p class="empty-msg">No hay solicitudes pendientes de aprobación.</p>';
+        return;
+    }
+
+    let html = `
+        <table>
+        <thead>
+            <tr>
+            <th>Nombre Completo</th>
+            <th>Fecha de Registro</th>
+            <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+    pendientes.forEach(u => {
+        const fecha = new Date(u.creado_en).toLocaleDateString();
+        html += `
+        <tr>
+            <td><strong>${u.nombre_completo}</strong></td>
+            <td>${fecha}</td>
+            <td>
+            <button class="btn-action btn-approve" onclick="cambiarEstadoUsuario('${u.id}', 'aprobado', 'jugador')">Aprobar Jugador</button>
+            <button class="btn-action btn-admin" onclick="cambiarEstadoUsuario('${u.id}', 'aprobado', 'admin')">Aprobar como Admin</button>
+            <button class="btn-action btn-reject" onclick="cambiarEstadoUsuario('${u.id}', 'bloqueado', '${u.rol}')">Rechazar</button>
+            </td>
+        </tr>
+        `;
+    });
+
+    html += '</tbody></table>';
+    cont.innerHTML = html;
+    }
+
+    async function cambiarEstadoUsuario(userId, nuevoEstado, nuevoRol) {
+    const { error } = await supabase
+        .from('perfiles')
+        .update({ estado: nuevoEstado, rol: nuevoRol })
+        .eq('id', userId);
+
+    if (error) {
+        alert('Error al actualizar usuario: ' + error.message);
+    } else {
+        cargarSolicitudesPendientes();
+        cargarDirectorioUsuarios();
+    }
+    }
+
+    async function cargarMesasAbiertas() {
+    const cont = document.getElementById('contenedor-mesas');
+
+    const { data: mesas, error } = await supabase
+        .from('mesas')
+        .select(`
+        id, creado_en,
+        j1:jugador1_id(nombre_completo),
+        j2:jugador2_id(nombre_completo),
+        j3:jugador3_id(nombre_completo),
+        j4:jugador4_id(nombre_completo)
+        `)
+        .eq('estado', 'abierta')
+        .order('creado_en', { ascending: false });
+
+    if (error) {
+        cont.innerHTML = `<p style="color:var(--danger)">Error: ${error.message}</p>`;
+        return;
+    }
+
+    if (!mesas || mesas.length === 0) {
+        cont.innerHTML = '<p class="empty-msg">No hay mesas abiertas actualmente.</p>';
+        return;
+    }
+
+    let html = `
+        <table>
+        <thead>
+            <tr>
+            <th>Mesa</th>
+            <th>Pareja 1</th>
+            <th>Pareja 2</th>
+            <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+    mesas.forEach((m, idx) => {
+        html += `
+        <tr>
+            <td><strong>Mesa #${idx + 1}</strong></td>
+            <td>${m.j1?.nombre_completo || 'N/A'} & ${m.j3?.nombre_completo || 'N/A'}</td>
+            <td>${m.j2?.nombre_completo || 'N/A'} & ${m.j4?.nombre_completo || 'N/A'}</td>
+            <td>
+            <button class="btn-action btn-close-table" onclick="cerrarMesa('${m.id}')">Cerrar Mesa</button>
+            <a href="mesa.html?id=${m.id}" class="btn-action btn-admin" style="text-decoration:none;">Entrar</a>
+            </td>
+        </tr>
+        `;
+    });
+
+    html += '</tbody></table>';
+    cont.innerHTML = html;
+    }
+
+    async function cerrarMesa(mesaId) {
+    if (!confirm('¿Estás seguro de cerrar esta mesa? Ya no se podrán anotar más manos en ella.')) return;
+
+    const { error } = await supabase
+        .from('mesas')
+        .update({ estado: 'cerrada' })
+        .eq('id', mesaId);
+
+    if (error) {
+        alert('Error al cerrar la mesa: ' + error.message);
+    } else {
+        cargarMesasAbiertas();
+    }
+    }
+
+    async function cargarDirectorioUsuarios() {
+    const cont = document.getElementById('contenedor-usuarios');
+
+    const { data: usuarios, error } = await supabase
+        .from('perfiles')
+        .select('*')
+        .order('nombre_completo', { ascending: true });
+
+    if (error) return;
+
+    let html = `
+        <table>
+        <thead>
+            <tr>
+            <th>Nombre</th>
+            <th>Rol</th>
+            <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+    usuarios.forEach(u => {
+        html += `
+        <tr>
+            <td><strong>${u.nombre_completo}</strong></td>
+            <td>${u.rol.toUpperCase()}</td>
+            <td><span class="badge badge-${u.estado}">${u.estado.toUpperCase()}</span></td>
+        </tr>
+        `;
+    });
+
+    html += '</tbody></table>';
+    cont.innerHTML = html;
+    }
+</script>
+</body>
+</html>
