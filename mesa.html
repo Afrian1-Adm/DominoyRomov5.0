@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apuntes SISMA - Mesa de Juego</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+    :root {
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --p1-color: #38bdf8;
+    --p2-color: #f43f5e;
+    --success: #22c55e;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text); padding: 15px; display: flex; justify-content: center; }
+    .container { max-width: 600px; width: 100%; display: flex; flex-direction: column; gap: 15px; }
+
+    /* Encabezado */
+    .header-nav { display: flex; justify-content: space-between; align-items: center; }
+    .btn-back { background: #334155; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; text-decoration: none; font-size: 0.9rem; }
+    
+    /* Marcador Principal */
+    .scoreboard { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--card-bg); border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #334155; }
+    .team-box { display: flex; flex-direction: column; gap: 5px; }
+    .team-box.p1 { color: var(--p1-color); }
+    .team-box.p2 { color: var(--p2-color); }
+    .team-names { font-size: 0.85rem; color: var(--text-muted); min-height: 36px; }
+    .score-big { font-size: 3.5rem; font-weight: bold; line-height: 1; margin: 10px 0; }
+
+    /* Panel de Anote */
+    .anote-card { background: var(--card-bg); border-radius: 12px; padding: 15px; border: 1fr solid #334155; }
+    .anote-card h3 { font-size: 1rem; margin-bottom: 10px; color: var(--text-muted); text-align: center; }
+    .input-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    .input-box { display: flex; flex-direction: column; gap: 5px; }
+    .input-box label { font-size: 0.8rem; font-weight: bold; }
+    input[type="number"] { padding: 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: white; font-size: 1.2rem; text-align: center; }
+    
+    .btn-anotar { width: 100%; padding: 14px; border: none; border-radius: 8px; font-weight: bold; font-size: 1.1rem; background: var(--accent); color: white; cursor: pointer; }
+    .btn-anotar:hover { background: var(--accent-hover); }
+
+    /* Historial */
+    .history-card { background: var(--card-bg); border-radius: 12px; padding: 15px; border: 1px solid #334155; }
+    table { width: 100%; border-collapse: collapse; text-align: center; font-size: 0.95rem; }
+    th { padding: 8px; color: var(--text-muted); border-bottom: 1px solid #334155; font-size: 0.85rem; }
+    td { padding: 10px 8px; border-bottom: 1px solid #0f172a; }
+
+    /* Aviso Espectador */
+    .spectator-banner { background: #1e293b; border: 1px solid #334155; border-left: 4px solid #eab308; padding: 10px; border-radius: 6px; font-size: 0.85rem; text-align: center; color: #fef08a; }
+    .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-nav">
+    <a href="index.html" class="btn-back">← Volver al Lobby</a>
+    <span id="live-indicator" style="font-size:0.8rem; color:var(--success); font-weight:bold;">● EN VIVO</span>
+    </div>
+
+    <!-- MARCADOR GLOBAL -->
+    <div class="scoreboard">
+    <div class="team-box p1">
+        <h2>PAREJA 1</h2>
+        <div class="team-names" id="p1-names">Cargando...</div>
+        <div class="score-big" id="p1-score">0</div>
+    </div>
+    <div class="team-box p2">
+        <h2>PAREJA 2</h2>
+        <div class="team-names" id="p2-names">Cargando...</div>
+        <div class="score-big" id="p2-score">0</div>
+    </div>
+    </div>
+
+    <!-- MODO ESPECTADOR (Si no está jugando en esta mesa) -->
+    <div id="spectator-msg" class="spectator-banner hidden">
+    👁️ Estás viendo esta partida en <strong>Modo Espectador</strong>. El marcador se actualiza automáticamente.
+    </div>
+
+    <!-- PANEL DE ANOTE (Solo visible para los 4 jugadores o Admin) -->
+    <div id="anote-panel" class="anote-card hidden">
+    <h3>Anotar Puntos de la Mano</h3>
+    <form onsubmit="registrarMano(event)">
+        <div class="input-group">
+        <div class="input-box">
+            <label style="color:var(--p1-color)">Puntos Pareja 1</label>
+            <input type="number" id="pts-p1" min="0" placeholder="0" value="0" onclick="this.select()">
+        </div>
+        <div class="input-box">
+            <label style="color:var(--p2-color)">Puntos Pareja 2</label>
+            <input type="number" id="pts-p2" min="0" placeholder="0" value="0" onclick="this.select()">
+        </div>
+        </div>
+        <button type="submit" class="btn-anotar">Guardar Mano</button>
+    </form>
+    </div>
+
+    <!-- HISTORIAL DE MANOS -->
+    <div class="history-card">
+    <h3 style="margin-bottom:10px; font-size:0.9rem; color:var(--text-muted)">Historial de Manos</h3>
+    <table>
+        <thead>
+        <tr>
+            <th>#</th>
+            <th style="color:var(--p1-color)">Pareja 1</th>
+            <th style="color:var(--p2-color)">Pareja 2</th>
+        </tr>
+        </thead>
+        <tbody id="tabla-manos">
+        <tr><td colspan="3" style="color:var(--text-muted)">Cargando jugadas...</td></tr>
+        </tbody>
+    </table>
+    </div>
+</div>
+
+<script>
+    // -------------------------------------------------------------
+    // CONFIGURACIÓN DE SUPABASE
+    // -------------------------------------------------------------
+    const SUPABASE_URL = 'https://kzbslfwupzwczmjqfjem.supabase.co';
+    // ⚠️ REEMPLAZA ESTA CLAVE POR TU ANON KEY REAL DE SUPABASE:
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6YnNsZnd1cHp3Y3ptanFmamVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDI1MzksImV4cCI6MjEwMjcxODUzOX0.qeeh2FV3zKRet-jRMVvJUwBm9jYHsLbWSYWIao574qc';
+
+    var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const mesaId = urlParams.get('id');
+
+    let limitePuntosMesa = 200; // Límite predeterminado
+
+    window.addEventListener('DOMContentLoaded', async () => {
+    if (!mesaId) {
+        alert('No se especificó ninguna mesa.');
+        window.location.href = 'index.html';
+        return;
+    }
+    await cargarDatosMesa();
+    await cargarHistorialYVerificarGanador();
+    });
+
+    // 1. CARGAR NOMBRES DE JUGADORES Y CONFIGURACIÓN (CORREGIDO)
+    async function cargarDatosMesa() {
+    try {
+    const { data: mesa, error } = await supabase
+        .from('mesas')
+        .select('*')
+        .eq('id', mesaId)
+        .single();
+
+    if (error || !mesa) {
+        console.error('Error al obtener la mesa:', error);
+        return;
+    }
+
+    if (mesa.limite_puntos) {
+        limitePuntosMesa = mesa.limite_puntos;
+    }
+
+    // Obtener los IDs de los 4 jugadores
+    const ids = [mesa.jugador1_id, mesa.jugador2_id, mesa.jugador3_id, mesa.jugador4_id].filter(Boolean);
+    let nombres = {};
+
+    if (ids.length > 0) {
+      // Consulta a la tabla 'usuarios' con la columna exacta 'nombre_completo'
+        const { data: usuarios, error: errUsuarios } = await supabase
+        .from('usuarios')
+        .select('id, nombre_completo')
+        .in('id', ids);
+
+        if (errUsuarios) {
+        console.error('Error consultando usuarios:', errUsuarios);
+        } else if (usuarios) {
+        usuarios.forEach(u => {
+        nombres[u.id] = u.nombre_completo || 'Jugador';
+        });
+        }
+    }
+
+    const p1_j1 = nombres[mesa.jugador1_id] || 'Jugador 1';
+    const p1_j2 = nombres[mesa.jugador2_id] || 'Jugador 2';
+    const p2_j1 = nombres[mesa.jugador3_id] || 'Jugador 3';
+    const p2_j2 = nombres[mesa.jugador4_id] || 'Jugador 4';
+
+    // Actualizar nombres en la pantalla
+    const elementosCargando = Array.from(document.querySelectorAll('*')).filter(
+        el => el.children.length === 0 && (
+        el.textContent.trim().toLowerCase() === 'cargando...' ||
+        el.textContent.trim().includes('Jugador 1 / Jugador 2')
+        )
+    );
+
+    if (elementosCargando.length >= 2) {
+        elementosCargando[0].innerText = `${p1_j1} / ${p1_j2}`;
+        elementosCargando[1].innerText = `${p2_j1} / ${p2_j2}`;
+    }
+    } catch (e) {
+    console.error('Error inesperado:', e);
+    }
+    }
+
+    // 2. REGISTRAR MANO
+    async function registrarMano(event) {
+    if (event) event.preventDefault();
+
+    const puntosP1 = parseInt(document.getElementById('puntos-p1').value) || 0;
+    const puntosP2 = parseInt(document.getElementById('puntos-p2').value) || 0;
+
+    if (puntosP1 === 0 && puntosP2 === 0) {
+        alert('Ingresa los puntos anotados en la mano.');
+        return;
+    }
+
+    const { error } = await supabase
+        .from('manos')
+        .insert([{ mesa_id: mesaId, puntos_pareja1: puntosP1, puntos_pareja2: puntosP2 }]);
+
+    if (error) {
+        alert('Error al registrar la mano: ' + error.message);
+        return;
+    }
+
+    document.getElementById('puntos-p1').value = '';
+    document.getElementById('puntos-p2').value = '';
+
+    await cargarHistorialYVerificarGanador();
+    }
+
+    // 3. CARGAR HISTORIAL, TOTALES Y EVALUAR LIMITE
+    async function cargarHistorialYVerificarGanador() {
+    const { data: manos, error } = await supabase
+        .from('manos')
+        .select('*')
+        .eq('mesa_id', mesaId)
+        .order('creado_en', { ascending: true });
+
+    if (error) return;
+
+    let totalP1 = 0;
+    let totalP2 = 0;
+
+    const tbody = document.getElementById('tabla-manos-body') || document.querySelector('tbody');
+    if (tbody) tbody.innerHTML = '';
+
+    manos.forEach((mano, index) => {
+        const esAnulada = mano.anulada === true;
+
+    if (!esAnulada) {
+        totalP1 += mano.puntos_pareja1;
+        totalP2 += mano.puntos_pareja2;
+    }
+
+    if (tbody) {
+        const tr = document.createElement('tr');
+    if (esAnulada) tr.classList.add('mano-anulada');
+
+        tr.innerHTML = `
+        <td>#${index + 1}</td>
+        <td>${mano.puntos_pareja1} pts</td>
+        <td>${mano.puntos_pareja2} pts</td>
+        <td>
+            <button class="btn-sm btn-edit" onclick="editarMano('${mano.id}', ${mano.puntos_pareja1}, ${mano.puntos_pareja2})">✏️ Editar</button>
+            <button class="btn-sm ${esAnulada ? 'btn-restore' : 'btn-annul'}" onclick="toggleAnularMano('${mano.id}', ${esAnulada})">
+            ${esAnulada ? '🔄 Restaurar' : '🚫 Anular'}
+            </button>
+        </td>
+        `;
+        tbody.appendChild(tr);
+    }
+    });
+
+    const elemP1 = document.getElementById('total-p1');
+    const elemP2 = document.getElementById('total-p2');
+    if (elemP1) elemP1.innerText = totalP1;
+    if (elemP2) elemP2.innerText = totalP2;
+
+    // Verificar si se alcanzó la meta asignada a la mesa
+    if (totalP1 >= limitePuntosMesa || totalP2 >= limitePuntosMesa) {
+        const ganador = totalP1 >= limitePuntosMesa ? 'Pareja 1' : 'Pareja 2';
+        const puntosGanador = totalP1 >= limitePuntosMesa ? totalP1 : totalP2;
+
+        await supabase
+        .from('mesas')
+        .update({ estado: 'cerrada' })
+        .eq('id', mesaId);
+
+    const formContainer = document.getElementById('contenedor-form-mano');
+    if (formContainer) {
+        formContainer.innerHTML = `
+            <div style="background: #16a34a; color: white; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold;">
+            🏆 ¡PARTIDA FINALIZADA A ${limitePuntosMesa} PTS! <br>
+            Ganador: ${ganador} (${puntosGanador} pts)
+            </div>
+        `;
+    }
+    }
+    }
+
+    // 4. ANULAR O RESTAURAR MANO
+    async function toggleAnularMano(manoId, estadoActualAnulada) {
+    const { error } = await supabase
+        .from('manos')
+        .update({ anulada: !estadoActualAnulada })
+        .eq('id', manoId);
+
+    if (error) alert('Error: ' + error.message);
+    else cargarHistorialYVerificarGanador();
+    }
+
+    // 5. EDITAR MANO
+    async function editarMano(manoId, p1Actual, p2Actual) {
+    const nuevoP1 = prompt('Puntos para Pareja 1:', p1Actual);
+    if (nuevoP1 === null) return;
+
+    const nuevoP2 = prompt('Puntos para Pareja 2:', p2Actual);
+    if (nuevoP2 === null) return;
+
+    const { error } = await supabase
+        .from('manos')
+        .update({
+        puntos_pareja1: parseInt(nuevoP1) || 0,
+        puntos_pareja2: parseInt(nuevoP2) || 0
+        })
+        .eq('id', manoId);
+
+    if (error) alert('Error: ' + error.message);
+    else cargarHistorialYVerificarGanador();
+    }
+</script>
+</body>
+</html>
