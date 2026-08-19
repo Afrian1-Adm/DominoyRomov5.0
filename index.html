@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Club Dominó y Romo - Inicio</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <div class="container">
+    <header>
+        <h1>Club Dominó y Romo</h1>
+        <p>Sistema de Anote y Estadísticas</p>
+    </header>
+
+    <!-- Tarjeta de Usuario -->
+    <section class="card user-card">
+        <div class="user-info">
+        <h2 id="user-nombre">Cargando...</h2>
+        <span class="role-label">Rol: <span id="user-rol">---</span></span>
+        </div>
+        <div class="user-actions">
+        <span id="user-estado" class="badge badge-success">ACTIVO</span>
+        <button id="btn-salir" onclick="cerrarSesion()" class="btn btn-danger">Salir</button>
+        </div>
+    </section>
+
+    <!-- Formulario Nueva Mesa -->
+    <section class="card">
+        <h2 class="card-title">Iniciar Nueva Mesa</h2>
+        <form id="form-nueva-mesa" onsubmit="crearMesa(event)">
+        <div class="form-grid">
+            <div class="form-group full-width">
+            <label for="puntos-ganar">Puntos para ganar:</label>
+            <input type="number" id="puntos-ganar" value="200" min="50" step="50" required>
+            </div>
+            <div class="form-group">
+            <label for="j1">Pareja 1 - Jugador 1</label>
+            <select id="j1" class="select-jugador" required><option value="">Cargando...</option></select>
+            </div>
+
+            <div class="form-group">
+            <label for="j3">Pareja 1 - Jugador 3</label>
+            <select id="j3" class="select-jugador" required><option value="">Cargando...</option></select>
+            </div>
+
+            <div class="form-group">
+            <label for="j2">Pareja 2 - Jugador 2</label>
+            <select id="j2" class="select-jugador" required><option value="">Cargando...</option></select>
+            </div>
+
+            <div class="form-group">
+            <label for="j4">Pareja 2 - Jugador 4</label>
+            <select id="j4" class="select-jugador" required><option value="">Cargando...</option></select>
+            </div>
+
+        </div>
+
+        <button type="submit" class="btn btn-primary full-width-btn">Abrir Mesa de Anote</button>
+        </form>
+    </section>
+
+    <!-- Mesas en Vivo -->
+    <section class="card">
+        <div class="section-header">
+        <h2 class="card-title">Mesas en Vivo</h2>
+        <button onclick="cargarMesasEnVivo()" class="btn btn-secondary">🔄 Actualizar</button>
+        </div>
+        <div id="contenedor-mesas" class="mesas-list">
+        </div>
+    </section>
+    </div>
+
+<script>
+    // -------------------------------------------------------------
+    // CONFIGURACIÓN DE SUPABASE (REEMPLAZA TU ANON KEY)
+    // -------------------------------------------------------------
+    const SUPABASE_URL = 'https://kzbslfwupzwczmjqfjem.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6YnNsZnd1cHp3Y3ptanFmamVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDI1MzksImV4cCI6MjEwMjcxODUzOX0.qeeh2FV3zKRet-jRMVvJUwBm9jYHsLbWSYWIao574qc'; // Copia tu clave anon de Project Settings -> API Keys
+
+    var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let usuarioActual = null;
+    let perfilUsuario = null;
+    let esInvitado = false;
+
+    // Inicializar app
+    window.addEventListener('DOMContentLoaded', async () => {
+        verificarSesion();
+        cargarMesasActivas();
+    });
+
+    // Pestañas Login/Registro
+    function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    if(tab === 'login') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('login-form').classList.remove('hidden');
+        document.getElementById('register-form').classList.add('hidden');
+    } else {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('login-form').classList.add('hidden');
+        document.getElementById('register-form').classList.remove('hidden');
+    }
+    }
+
+    // Verificar estado de la sesión
+    async function verificarSesion() {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+        usuarioActual = session.user;
+        esInvitado = false;
+        await cargarPerfil();
+    } else if (localStorage.getItem('modo_invitado') === 'true') {
+        esInvitado = true;
+        mostrarModoInvitado();
+    } else {
+        mostrarFormularioAuth();
+    }
+    }
+
+    // Cargar perfil del usuario
+    async function cargarPerfil() {
+    const { data, error } = await supabase
+        .from('perfiles')
+        .select('*')
+        .eq('id', usuarioActual.id)
+        .single();
+
+    if (error) {
+        console.error("Error al cargar perfil:", error);
+        return;
+    }
+
+    perfilUsuario = data;
+    
+      // Mostrar info usuario
+    document.getElementById('auth-section').classList.add('hidden');
+    document.getElementById('user-logged-section').classList.remove('hidden');
+    document.getElementById('user-name-display').innerText = perfilUsuario.nombre_completo;
+    document.getElementById('user-role-display').innerText = `Rol: ${perfilUsuario.rol.toUpperCase()}`;
+
+    const badge = document.getElementById('user-status-badge');
+    badge.innerText = perfilUsuario.estado.toUpperCase();
+    badge.className = `status-badge status-${perfilUsuario.estado}`;
+
+    if (perfilUsuario.rol === 'admin') {
+        document.getElementById('admin-panel-btn').classList.remove('hidden');
+    }
+
+    if (perfilUsuario.estado === 'pendiente') {
+        document.getElementById('pending-alert').classList.remove('hidden');
+        document.getElementById('crear-mesa-card').classList.add('hidden');
+    } else {
+        document.getElementById('pending-alert').classList.add('hidden');
+        document.getElementById('crear-mesa-card').classList.remove('hidden');
+        cargarJugadoresAprobados();
+    }
+    }
+
+    // Login
+    async function loginUsuario(e) {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+        alert('Error al iniciar sesión: ' + error.message);
+    } else {
+        localStorage.removeItem('modo_invitado');
+        verificarSesion();
+    }
+    }
+
+    // Registro
+    async function registrarUsuario(e) {
+        e.preventDefault();
+        const nombre = document.getElementById('reg-nombre').value;
+        const email = document.getElementById('reg-email').value;
+        const password = document.getElementById('reg-password').value;
+
+        const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+            data: { nombre_completo: nombre }
+        }
+        });
+
+        if (error) {
+        alert('Error al registrar usuario: ' + error.message);
+        } else {
+        alert('Registro completado. Tu cuenta requerirá aprobación del Administrador.');
+        switchTab('login');
+        }
+    }
+
+    // Modo invitado
+    function entrarModoInvitado() {
+    localStorage.setItem('modo_invitado', 'true');
+    esInvitado = true;
+    mostrarModoInvitado();
+    }
+
+    function mostrarModoInvitado() {
+    document.getElementById('auth-section').classList.add('hidden');
+    document.getElementById('user-logged-section').classList.remove('hidden');
+    document.getElementById('crear-mesa-card').classList.add('hidden');
+    document.getElementById('user-name-display').innerText = 'Invitado (Espectador)';
+    document.getElementById('user-role-display').innerText = 'Solo lectura';
+    
+    const badge = document.getElementById('user-status-badge');
+    badge.innerText = 'INVITADO';
+    badge.className = 'status-badge';
+    }
+
+    function mostrarFormularioAuth() {
+    document.getElementById('auth-section').classList.remove('hidden');
+    document.getElementById('user-logged-section').classList.add('hidden');
+    document.getElementById('crear-mesa-card').classList.add('hidden');
+    }
+
+    async function cerrarSesion() {
+    await supabase.auth.signOut();
+    localStorage.removeItem('modo_invitado');
+    usuarioActual = null;
+    perfilUsuario = null;
+    esInvitado = false;
+    location.reload();
+    }
+
+    // Cargar jugadores aprobados para los desplegables de nueva mesa
+    async function cargarJugadoresAprobados() {
+    const { data, error } = await supabase
+        .from('perfiles')
+        .select('id, nombre_completo')
+        .eq('estado', 'aprobado')
+        .order('nombre_completo');
+
+    if (error) return;
+
+    const selects = ['select-j1', 'select-j2', 'select-j3', 'select-j4'];
+    selects.forEach(id => {
+        const select = document.getElementById(id);
+        select.innerHTML = '<option value="">-- Seleccionar --</option>';
+        data.forEach(j => {
+        select.innerHTML += `<option value="${j.id}">${j.nombre_completo}</option>`;
+        });
+    });
+    }
+
+    // Crear Mesa
+    async function crearNuevaMesa(e) {
+    e.preventDefault();
+    const j1 = document.getElementById('select-j1').value;
+    const j2 = document.getElementById('select-j2').value;
+    const j3 = document.getElementById('select-j3').value;
+    const j4 = document.getElementById('select-j4').value;
+
+    const limitePuntos = parseInt(document.getElementById('limite-puntos-mesa').value) || 200;
+
+    // Validar que no se repitan jugadores
+    const setJugadores = new Set([j1, j2, j3, j4]);
+    if (setJugadores.size < 4) {
+        alert('Debes seleccionar 4 jugadores distintos para abrir la mesa.');
+        return;
+    }
+
+    const { data, error } = await supabase
+        .from('mesas')
+        .insert([{
+        jugador1_id: j1,
+        jugador2_id: j2,
+        jugador3_id: j3,
+        jugador4_id: j4,
+        limite_puntos: limitePuntos, // <--- PUNTOS CONFIGURABLES (200 POR DEFECTO)
+        estado: 'abierta'
+        }])
+        .select();
+
+    if (error) {
+        alert('Error al crear mesa: ' + error.message);
+    } else {
+        // Redirigir a la ventana limpia de anote
+        window.location.href = `mesa.html?id=${data.id}`;
+    }
+    }
+
+    // Cargar Mesas Activas
+    async function cargarMesasActivas() {
+    const contenedor = document.getElementById('lista-mesas');
+    
+    const { data: mesas, error } = await supabase
+        .from('mesas')
+        .select(`
+        id, creado_en,
+        j1:jugador1_id(nombre_completo),
+        j2:jugador2_id(nombre_completo),
+        j3:jugador3_id(nombre_completo),
+        j4:jugador4_id(nombre_completo)
+        `)
+        .eq('estado', 'abierta')
+        .order('creado_en', { ascending: false });
+
+    if (error) {
+        contenedor.innerHTML = `<p style="color:var(--danger)">Error al cargar mesas: ${error.message}</p>`;
+        return;
+    }
+
+    if (!mesas || mesas.length === 0) {
+        contenedor.innerHTML = '<p style="color:var(--text-muted)">No hay mesas abiertas en este momento.</p>';
+        return;
+    }
+
+    contenedor.innerHTML = '';
+    mesas.forEach((m, idx) => {
+        contenedor.innerHTML += `
+        <div class="mesa-card">
+            <div class="mesa-title">
+            <span>Mesa #${idx + 1}</span>
+            <span style="font-size:0.75rem; color:var(--success)">● EN VIVO</span>
+            </div>
+            <div class="jugadores-list">
+            <strong>Pareja 1:</strong> ${m.j1?.nombre_completo || 'N/A'} & ${m.j3?.nombre_completo || 'N/A'}<br>
+            <strong>Pareja 2:</strong> ${m.j2?.nombre_completo || 'N/A'} & ${m.j4?.nombre_completo || 'N/A'}
+            </div>
+            <button class="btn" onclick="window.location.href='mesa.html?id=${m.id}'">Entrar a la Mesa</button>
+        </div>
+        `;
+    });
+    }
+</script>
+
+</body>
+</html>

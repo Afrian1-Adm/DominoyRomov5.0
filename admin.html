@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración - Dominó</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <div class="container">
+    <header>
+        <h1>Panel Admin</h1>
+        <p>Gestión de Miembros y Permisos</p>
+    </header>
+
+    <!-- Solicitudes Pendientes -->
+    <section class="card">
+        <div class="section-header">
+        <h2 class="card-title">Solicitudes Pendientes</h2>
+        <button onclick="cargarSolicitudes()" class="btn btn-secondary">🔄</button>
+        </div>
+        <div id="lista-pendientes" class="user-list">
+        <!-- Lista cargada desde JS -->
+        </div>
+    </section>
+
+    <!-- Listado General de Miembros -->
+    <section class="card">
+        <h2 class="card-title">Miembros Registrados</h2>
+        <div id="lista-miembros" class="user-list">
+        <!-- Lista cargada desde JS -->
+        </div>
+        <button onclick="volverInicio()" class="btn btn-secondary full-width-btn" style="margin-top: 16px;">Volver al Inicio</button>
+    </section>
+    </div>
+
+<script>
+    // -------------------------------------------------------------
+    // CREDENCIALES DE SUPABASE
+    // -------------------------------------------------------------
+    const SUPABASE_URL = 'https://kzbslfwupzwczmjqfjem.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6YnNsZnd1cHp3Y3ptanFmamVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDI1MzksImV4cCI6MjEwMjcxODUzOX0.qeeh2FV3zKRet-jRMVvJUwBm9jYHsLbWSYWIao574qc'; // Copia tu clave anon de Supabase
+
+    var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    window.addEventListener('DOMContentLoaded', async () => {
+    const esAdmin = await verificarAccesoAdmin();
+    if (esAdmin) {
+        cargarSolicitudesPendientes();
+        cargarMesasAbiertas();
+        cargarDirectorioUsuarios();
+    }
+    });
+
+    // Validar que el usuario logueado tenga rol 'admin'
+    async function verificarAccesoAdmin() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        alert('Debes iniciar sesión para acceder al panel de administración.');
+        window.location.href = 'index.html';
+        return false;
+    }
+
+    const { data: perfil, error } = await supabase
+        .from('perfiles')
+        .select('rol')
+        .eq('id', session.user.id)
+        .single();
+
+    if (error || !perfil || perfil.rol !== 'admin') {
+        alert('Acceso denegado: Se requieren permisos de Administrador.');
+        window.location.href = 'index.html';
+        return false;
+    }
+
+    return true;
+    }
+
+    // 1. CARGAR SOLICITUDES PENDIENTES
+    async function cargarSolicitudesPendientes() {
+    const cont = document.getElementById('contenedor-pendientes');
+    
+    const { data: pendientes, error } = await supabase
+        .from('perfiles')
+        .select('*')
+        .eq('estado', 'pendiente')
+        .order('creado_en', { ascending: true });
+
+    if (error) {
+        cont.innerHTML = `<p style="color:var(--danger)">Error: ${error.message}</p>`;
+        return;
+    }
+
+    if (!pendientes || pendientes.length === 0) {
+        cont.innerHTML = '<p class="empty-msg">No hay solicitudes pendientes de aprobación.</p>';
+        return;
+    }
+
+    let html = `
+        <table>
+        <thead>
+            <tr>
+            <th>Nombre Completo</th>
+            <th>Fecha de Registro</th>
+            <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+    pendientes.forEach(u => {
+        const fecha = new Date(u.creado_en).toLocaleDateString();
+        html += `
+        <tr>
+            <td><strong>${u.nombre_completo}</strong></td>
+            <td>${fecha}</td>
+            <td>
+            <button class="btn-action btn-approve" onclick="cambiarEstadoUsuario('${u.id}', 'aprobado', 'jugador')">Aprobar Jugador</button>
+            <button class="btn-action btn-admin" onclick="cambiarEstadoUsuario('${u.id}', 'aprobado', 'admin')">Aprobar como Admin</button>
+            <button class="btn-action btn-reject" onclick="cambiarEstadoUsuario('${u.id}', 'bloqueado', '${u.rol}')">Rechazar</button>
+            </td>
+        </tr>
+        `;
+    });
+
+    html += '</tbody></table>';
+    cont.innerHTML = html;
+    }
+
+    // Actualizar Estado y Rol del Usuario
+    async function cambiarEstadoUsuario(userId, nuevoEstado, nuevoRol) {
+    const { error } = await supabase
+        .from('perfiles')
+        .update({ estado: nuevoEstado, rol: nuevoRol })
+        .eq('id', userId);
+
+    if (error) {
+        alert('Error al actualizar usuario: ' + error.message);
+    } else {
+        cargarSolicitudesPendientes();
+        cargarDirectorioUsuarios();
+    }
+    }
+
+    // 2. CARGAR MESAS ABIERTAS Y PERMITIR CERRARLAS
+    async function cargarMesasAbiertas() {
+    const cont = document.getElementById('contenedor-mesas');
+
+    const { data: mesas, error } = await supabase
+        .from('mesas')
+        .select(`
+        id, creado_en,
+        j1:jugador1_id(nombre_completo),
+        j2:jugador2_id(nombre_completo),
+        j3:jugador3_id(nombre_completo),
+        j4:jugador4_id(nombre_completo)
+        `)
+        .eq('estado', 'abierta')
+        .order('creado_en', { ascending: false });
+
+    if (error) {
+        cont.innerHTML = `<p style="color:var(--danger)">Error: ${error.message}</p>`;
+        return;
+    }
+
+    if (!mesas || mesas.length === 0) {
+        cont.innerHTML = '<p class="empty-msg">No hay mesas abiertas actualmente.</p>';
+        return;
+    }
+
+    let html = `
+        <table>
+        <thead>
+            <tr>
+            <th>Mesa</th>
+            <th>Pareja 1</th>
+            <th>Pareja 2</th>
+            <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+    mesas.forEach((m, idx) => {
+        html += `
+        <tr>
+            <td><strong>Mesa #${idx + 1}</strong></td>
+            <td>${m.j1?.nombre_completo || 'N/A'} & ${m.j3?.nombre_completo || 'N/A'}</td>
+            <td>${m.j2?.nombre_completo || 'N/A'} & ${m.j4?.nombre_completo || 'N/A'}</td>
+            <td>
+            <button class="btn-action btn-close-table" onclick="cerrarMesa('${m.id}')">Cerrar Mesa</button>
+            <a href="mesa.html?id=${m.id}" class="btn-action btn-admin" style="text-decoration:none;">Entrar</a>
+            </td>
+        </tr>
+        `;
+    });
+
+    html += '</tbody></table>';
+    cont.innerHTML = html;
+    }
+
+    async function cerrarMesa(mesaId) {
+    if (!confirm('¿Estás seguro de cerrar esta mesa? Ya no se podrán anotar más manos en ella.')) return;
+
+    const { error } = await supabase
+        .from('mesas')
+        .update({ estado: 'cerrada' })
+        .eq('id', mesaId);
+
+    if (error) {
+        alert('Error al cerrar la mesa: ' + error.message);
+    } else {
+        cargarMesasAbiertas();
+    }
+    }
+
+    // 3. DIRECTORIO DE TODOS LOS USUARIOS
+    async function cargarDirectorioUsuarios() {
+    const cont = document.getElementById('contenedor-usuarios');
+
+    const { data: usuarios, error } = await supabase
+        .from('perfiles')
+        .select('*')
+        .order('nombre_completo', { ascending: true });
+
+    if (error) return;
+
+    let html = `
+        <table>
+        <thead>
+            <tr>
+            <th>Nombre</th>
+            <th>Rol</th>
+            <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+    usuarios.forEach(u => {
+        html += `
+        <tr>
+            <td><strong>${u.nombre_completo}</strong></td>
+            <td>${u.rol.toUpperCase()}</td>
+            <td><span class="badge badge-${u.estado}">${u.estado.toUpperCase()}</span></td>
+        </tr>
+        `;
+    });
+
+    html += '</tbody></table>';
+    cont.innerHTML = html;
+    }
+</script>
+
+</body>
+</html>
