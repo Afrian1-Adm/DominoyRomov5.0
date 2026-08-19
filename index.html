@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apuntes - Inicio</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+    :root {
+        --bg-color: #0f172a;
+        --card-bg: #1e293b;
+        --accent: #2563eb;
+        --accent-hover: #1d4ed8;
+        --text: #f8fafc;
+        --text-muted: #94a3b8;
+        --success: #16a34a;
+        --warning: #ca8a04;
+        --danger: #dc2626;
+    }
+
+    * { 
+        box-sizing: border-box; 
+        margin: 0; 
+        padding: 0; 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    body { background-color: var(--bg-color); color: var(--text); padding: 10px; display: flex; justify-content: center; }
+    .container { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 12px; }
+    
+    header { text-align: center; padding: 10px 0; border-bottom: 1px solid #334155; }
+    header h1 { font-size: 1.6rem; color: #38bdf8; }
+    header p { color: var(--text-muted); font-size: 0.85rem; }
+
+    .card { background: var(--card-bg); border-radius: 12px; padding: 14px; border: 1px solid #334155; }
+    
+    .auth-tabs { display: flex; gap: 8px; margin-bottom: 14px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+    .tab-btn { flex: 1; min-height: 44px; background: none; border: none; color: var(--text-muted); font-size: 0.95rem; font-weight: bold; cursor: pointer; border-radius: 6px; }
+    .tab-btn.active { background: var(--accent); color: white; }
+
+    form { display: flex; flex-direction: column; gap: 10px; }
+    label { font-size: 0.85rem; color: var(--text-muted); }
+    
+    input, select { 
+        width: 100%; 
+        padding: 12px; 
+        border-radius: 8px; 
+        border: 1px solid #475569; 
+        background: #0f172a; 
+        color: white; 
+        font-size: 16px; 
+        min-height: 48px; 
+    }
+    
+    .btn { 
+        width: 100%; 
+        min-height: 48px; 
+        padding: 12px; 
+        border: none; 
+        border-radius: 8px; 
+        font-weight: bold; 
+        cursor: pointer; 
+        background: var(--accent); 
+        color: white; 
+        font-size: 1rem; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        text-decoration: none; 
+        transition: background 0.2s; 
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-secondary { background: #475569; }
+    .btn-secondary:hover { background: #334155; }
+    .btn-guest { background: #059669; }
+    .btn-danger { background: var(--danger); }
+
+    .user-info { display: flex; justify-content: space-between; align-items: center; background: #0f172a; padding: 10px; border-radius: 8px; flex-wrap: wrap; gap: 8px; }
+    .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+    .status-aprobado { background: #15803d; color: white; }
+    .status-pendiente { background: #a16207; color: white; }
+
+    /* Estilos Formulario de Equipos Dividido */
+    .equipos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+    .equipo-card-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .equipo-card-box h4 { font-size: 0.85rem; font-weight: bold; color: #38bdf8; }
+
+    /* Estilos Mesas Ocupadas en Vivo */
+    .mesas-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 10px; }
+    .mesa-card-vivo { background: #1e293b; border: 1px solid #38bdf8; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .mesa-header-vivo { display: flex; justify-content: space-between; align-items: flex-start; }
+    .badge-tu-partida { background: #2563eb; color: white; font-size: 0.7rem; padding: 2px 8px; border-radius: 12px; font-weight: bold; margin-left: 6px; }
+    
+    .marcador-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .equipo-score-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px; transition: border-color 0.3s; }
+    .equipo-score-box.lider { border: 1.5px solid #22c55e; background: rgba(34, 197, 94, 0.05); }
+    
+    .score-a { color: #38bdf8; font-size: 1.8rem; font-weight: 800; }
+    .score-b { color: #f87171; font-size: 1.8rem; font-weight: 800; }
+    
+    .progress-track { width: 100%; height: 8px; background: #0f172a; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+    .progress-fill { height: 100%; background: #10b981; transition: width 0.3s ease; }
+
+    .hidden { display: none !important; }
+    .alert { padding: 10px; border-radius: 6px; font-size: 0.85rem; }
+    .alert-warning { background: #854d0e; color: #fef08a; }
+
+    @media (max-width: 480px) {
+        .equipos-grid { grid-template-columns: 1fr; }
+    }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+    <header>
+        <h1>Club Dominó y Romo</h1>
+        <p>Sistema de Anote y Estadísticas</p>
+    </header>
+
+    <!-- AUTENTICACIÓN / REGISTRO -->
+    <div id="auth-section" class="card">
+        <div class="auth-tabs" id="tabs-header">
+            <button class="tab-btn active" onclick="switchTab('login')">Iniciar Sesión</button>
+            <button class="tab-btn" onclick="switchTab('register')">Registrarse</button>
+        </div>
+
+        <form id="login-form" onsubmit="loginUsuario(event)">
+            <div>
+                <label>Correo Electrónico</label>
+                <input type="email" id="login-email" required placeholder="correo@ejemplo.com">
+            </div>
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label>Contraseña</label>
+                    <a href="#" onclick="recuperarClave(event)" style="font-size: 0.8rem; color: #38bdf8; text-decoration: none;">¿Olvidaste tu contraseña?</a>
+                </div>
+                <input type="password" id="login-password" required placeholder="******">
+            </div>
+            <button type="submit" class="btn">Entrar</button>
+            <button type="button" class="btn btn-guest" onclick="entrarModoInvitado()">Modo Invitado (Solo Lectura)</button>
+        </form>
+
+        <form id="register-form" class="hidden" onsubmit="registrarUsuario(event)">
+            <div>
+                <label>Nombre Completo</label>
+                <input type="text" id="reg-nombre" required placeholder="Ej. Juan Pérez">
+            </div>
+            <div>
+                <label>Correo Electrónico</label>
+                <input type="email" id="reg-email" required placeholder="correo@ejemplo.com">
+            </div>
+            <div>
+                <label>Contraseña</label>
+                <input type="password" id="reg-password" required minlength="6" placeholder="Mínimo 6 caracteres">
+            </div>
+            <button type="submit" class="btn">Crear Cuenta</button>
+        </form>
+
+        <!-- FORMULARIO NUEVA CONTRASEÑA (SÓLO TRAS ENLACE DE RECUPERACIÓN) -->
+        <form id="recovery-form" class="hidden" onsubmit="guardarNuevaClave(event)">
+            <h3 style="color: #38bdf8; font-size: 1rem; margin-bottom: 4px;">Restablecer Contraseña</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">Ingresa tu nueva contraseña para actualizar el acceso.</p>
+            <div>
+                <label>Nueva Contraseña</label>
+                <input type="password" id="new-password" required minlength="6" placeholder="Mínimo 6 caracteres">
+            </div>
+            <button type="submit" class="btn">Guardar Nueva Contraseña</button>
+        </form>
+    </div>
+
+    <!-- USUARIO LOGUEADO -->
+    <div id="user-logged-section" class="card hidden">
+        <div class="user-info">
+            <div>
+                <strong id="user-name-display" style="font-size: 0.95rem;">Cargando...</strong>
+                <div id="user-role-display" style="font-size: 0.75rem; color: var(--text-muted);"></div>
+            </div>
+            <div style="display: flex; gap: 6px; align-items: center;">
+                <span id="user-status-badge" class="status-badge">...</span>
+                <button id="admin-panel-btn" class="btn btn-secondary hidden" style="padding: 6px 10px; min-height: 36px; font-size: 0.8rem;" onclick="window.location.href='admin.html'">Admin</button>
+                <button class="btn btn-danger" style="padding: 6px 10px; min-height: 36px; font-size: 0.8rem; width: auto;" onclick="cerrarSesion()">Salir</button>
+            </div>
+        </div>
+        <div id="pending-alert" class="alert alert-warning hidden" style="margin-top: 10px;">
+            Tu cuenta está <strong>Pendiente de Aprobación</strong>. Un administrador debe autorizarte para abrir mesas. Puedes ver las partidas como espectador.
+        </div>
+    </div>
+
+    <!-- CREAR MESA (EQUIPOS DIVIDIDOS) -->
+    <div id="crear-mesa-card" class="card hidden">
+        <h3 style="margin-bottom: 10px; color: #38bdf8; font-size: 1.1rem;">Iniciar Nueva Mesa</h3>
+        <form onsubmit="crearNuevaMesa(event)">
+            <div>
+                <label>Puntos para ganar:</label>
+                <input type="number" id="limite-puntos-mesa" value="200" min="50" step="50">
+            </div>
+            
+            <div>
+                <label style="font-weight: bold; color: #38bdf8;">Equipos</label>
+                <div class="equipos-grid">
+                    <!-- Equipo A -->
+                    <div class="equipo-card-box">
+                        <h4>Equipo A</h4>
+                        <div>
+                            <label>Jugador 1</label>
+                            <select id="select-j1" required></select>
+                        </div>
+                        <div>
+                            <label>Jugador 2</label>
+                            <select id="select-j3" required></select>
+                        </div>
+                    </div>
+
+                    <!-- Equipo B -->
+                    <div class="equipo-card-box">
+                        <h4>Equipo B</h4>
+                        <div>
+                            <label>Jugador 1</label>
+                            <select id="select-j2" required></select>
+                        </div>
+                        <div>
+                            <label>Jugador 2</label>
+                            <select id="select-j4" required></select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn" style="margin-top: 6px;">Abrir Mesa de Anote</button>
+        </form>
+    </div>
+
+    <!-- MESAS ACTIVAS (EN VIVO CON MARCADOR) -->
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3 style="font-size: 1.1rem;">Mesas en Vivo</h3>
+            <button class="btn btn-secondary" style="padding: 6px 10px; min-height: 36px; font-size: 0.8rem; width: auto;" onclick="cargarMesasActivas()">🔄 Actualizar</button>
+        </div>
+        <div id="lista-mesas" class="mesas-grid">
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Cargando mesas activas...</p>
+        </div>
+    </div>
+
+    </div>
+
+<script>
+    const SUPABASE_URL = 'https://kzbslfwupzwczmjqfjem.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6YnNsZnd1cHp3Y3ptanFmamVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDI1MzksImV4cCI6MjEwMjcxODUzOX0.qeeh2FV3zKRet-jRMVvJUwBm9jYHsLbWSYWIao574qc';
+
+    var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let usuarioActual = null;
+    let perfilUsuario = null;
+
+    window.addEventListener('DOMContentLoaded', async () => {
+        // Escuchar eventos de autenticación para detectar recuperación de clave
+        supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'PASSWORD_RECOVERY') {
+                mostrarFormularioRecuperacion();
+            }
+        });
+
+        verificarSesion();
+        cargarMesasActivas();
+    });
+
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('recovery-form').classList.add('hidden');
+        document.getElementById('tabs-header').classList.remove('hidden');
+
+        if(tab === 'login') {
+            document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            document.getElementById('login-form').classList.remove('hidden');
+            document.getElementById('register-form').classList.add('hidden');
+        } else {
+            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.getElementById('login-form').classList.add('hidden');
+            document.getElementById('register-form').classList.remove('hidden');
+        }
+    }
+
+    function mostrarFormularioRecuperacion() {
+        document.getElementById('auth-section').classList.remove('hidden');
+        document.getElementById('user-logged-section').classList.add('hidden');
+        document.getElementById('tabs-header').classList.add('hidden');
+        document.getElementById('login-form').classList.add('hidden');
+        document.getElementById('register-form').classList.add('hidden');
+        document.getElementById('recovery-form').classList.remove('hidden');
+    }
+
+    async function verificarSesion() {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session && !document.getElementById('recovery-form').classList.contains('hidden')) {
+            return;
+        }
+
+        if (session) {
+            usuarioActual = session.user;
+            await cargarPerfil();
+        } else if (localStorage.getItem('modo_invitado') === 'true') {
+            mostrarModoInvitado();
+        } else {
+            mostrarFormularioAuth();
+        }
+    }
+
+    async function cargarPerfil() {
+        const { data, error } = await supabase
+            .from('perfiles')
+            .select('*')
+            .eq('id', usuarioActual.id)
+            .single();
+
+        if (error) return;
+
+        perfilUsuario = data;
+        
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('user-logged-section').classList.remove('hidden');
+        document.getElementById('user-name-display').innerText = perfilUsuario.nombre_completo;
+        document.getElementById('user-role-display').innerText = `Rol: ${perfilUsuario.rol.toUpperCase()}`;
+
+        const badge = document.getElementById('user-status-badge');
+        badge.innerText = perfilUsuario.estado.toUpperCase();
+        badge.className = `status-badge status-${perfilUsuario.estado}`;
+
+        if (perfilUsuario.rol === 'admin') {
+            document.getElementById('admin-panel-btn').classList.remove('hidden');
+        }
+
+        if (perfilUsuario.estado === 'pendiente') {
+            document.getElementById('pending-alert').classList.remove('hidden');
+            document.getElementById('crear-mesa-card').classList.add('hidden');
+        } else {
+            document.getElementById('pending-alert').classList.add('hidden');
+            document.getElementById('crear-mesa-card').classList.remove('hidden');
+            cargarJugadoresAprobados();
+        }
+    }
+
+    async function loginUsuario(e) {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+        if (error) alert('Error al iniciar sesión: ' + error.message);
+        else {
+            localStorage.removeItem('modo_invitado');
+            verificarSesion();
+        }
+    }
+
+    async function recuperarClave(e) {
+        if (e) e.preventDefault();
+        const email = document.getElementById('login-email').value || prompt('Ingresa tu correo electrónico registrado:');
+        
+        if (!email) return;
+
+        // Utiliza dinámicamente la URL real donde está alojada la app (GitHub Pages o dominio local)
+        const redirectUrl = window.location.origin + window.location.pathname;
+
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: redirectUrl
+        });
+
+        if (error) {
+            alert('Error al enviar solicitud: ' + error.message);
+        } else {
+            alert('Te hemos enviado un correo electrónico con un enlace para restablecer tu contraseña.');
+        }
+    }
+
+    async function guardarNuevaClave(e) {
+        e.preventDefault();
+        const newPassword = document.getElementById('new-password').value;
+
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+        if (error) {
+            alert('Error al cambiar la contraseña: ' + error.message);
+        } else {
+            alert('Contraseña actualizada correctamente. Puedes iniciar sesión con tu nueva clave.');
+            location.href = window.location.pathname;
+        }
+    }
+
+    async function registrarUsuario(e) {
+        e.preventDefault();
+        const nombre = document.getElementById('reg-nombre').value;
+        const email = document.getElementById('reg-email').value;
+        const password = document.getElementById('reg-password').value;
+
+        const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { nombre_completo: nombre } }
+        });
+
+        if (error) alert('Error al registrar: ' + error.message);
+        else {
+            alert('Registro completado. Tu cuenta requerirá aprobación del Administrador.');
+            switchTab('login');
+        }
+    }
+
+    function entrarModoInvitado() {
+        localStorage.setItem('modo_invitado', 'true');
+        mostrarModoInvitado();
+    }
+
+    function mostrarModoInvitado() {
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('user-logged-section').classList.remove('hidden');
+        document.getElementById('crear-mesa-card').classList.add('hidden');
+        document.getElementById('user-name-display').innerText = 'Invitado (Espectador)';
+        document.getElementById('user-role-display').innerText = 'Solo lectura';
+        
+        const badge = document.getElementById('user-status-badge');
+        badge.innerText = 'INVITADO';
+        badge.className = 'status-badge';
+    }
+
+    function mostrarFormularioAuth() {
+        document.getElementById('auth-section').classList.remove('hidden');
+        document.getElementById('user-logged-section').classList.add('hidden');
+        document.getElementById('crear-mesa-card').classList.add('hidden');
+    }
+
+    async function cerrarSesion() {
+        await supabase.auth.signOut();
+        localStorage.removeItem('modo_invitado');
+        location.reload();
+    }
+
+    async function cargarJugadoresAprobados() {
+        const { data, error } = await supabase
+            .from('perfiles')
+            .select('id, nombre_completo')
+            .eq('estado', 'aprobado')
+            .order('nombre_completo');
+
+        if (error) return;
+
+        const selects = ['select-j1', 'select-j2', 'select-j3', 'select-j4'];
+        selects.forEach(id => {
+            const select = document.getElementById(id);
+            select.innerHTML = '<option value="">-- Seleccionar --</option>';
+            data.forEach(j => {
+                select.innerHTML += `<option value="${j.id}">${j.nombre_completo}</option>`;
+            });
+        });
+    }
+
+    async function crearNuevaMesa(e) {
+        e.preventDefault();
+        const j1 = document.getElementById('select-j1').value;
+        const j2 = document.getElementById('select-j2').value;
+        const j3 = document.getElementById('select-j3').value;
+        const j4 = document.getElementById('select-j4').value;
+        const limitePuntos = parseInt(document.getElementById('limite-puntos-mesa').value) || 200;
+
+        const setJugadores = new Set([j1, j2, j3, j4]);
+        if (setJugadores.size < 4) {
+            alert('Debes seleccionar 4 jugadores distintos para abrir la mesa.');
+            return;
+        }
+
+        const { data, error } = await supabase
+            .from('mesas')
+            .insert([{
+                jugador1_id: j1,
+                jugador2_id: j2,
+                jugador3_id: j3,
+                jugador4_id: j4,
+                limite_puntos: limitePuntos,
+                estado: 'abierta'
+            }])
+            .select()
+            .single();
+
+        if (error) alert('Error al crear mesa: ' + error.message);
+        else window.location.href = `mesa.html?id=${data.id}`;
+    }
+
+    async function cargarMesasActivas() {
+        const contenedor = document.getElementById('lista-mesas');
+        
+        const { data: mesas, error } = await supabase
+            .from('mesas')
+            .select(`
+                *,
+                j1:jugador1_id(nombre_completo),
+                j2:jugador2_id(nombre_completo),
+                j3:jugador3_id(nombre_completo),
+                j4:jugador4_id(nombre_completo),
+                manos(*)
+            `)
+            .eq('estado', 'abierta')
+            .order('creado_en', { ascending: false });
+
+        if (error) {
+            contenedor.innerHTML = `<p style="color:var(--danger); font-size:0.85rem;">Error: ${error.message}</p>`;
+            return;
+        }
+
+        if (!mesas || mesas.length === 0) {
+            contenedor.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No hay mesas abiertas en este momento.</p>';
+            return;
+        }
+
+        contenedor.innerHTML = '';
+        mesas.forEach((m, idx) => {
+            let totalP1 = 0;
+            let totalP2 = 0;
+            let rondas = 0;
+
+            if (m.manos && m.manos.length > 0) {
+                m.manos.forEach(mano => {
+                    if (!mano.anulada) {
+                        totalP1 += (mano.puntos_pareja1 || 0);
+                        totalP2 += (mano.puntos_pareja2 || 0);
+                        rondas++;
+                    }
+                });
+            }
+
+            const limitePuntos = m.limite_puntos || 200;
+            const mayorPuntaje = Math.max(totalP1, totalP2);
+            const progreso = Math.min(Math.round((mayorPuntaje / limitePuntos) * 100), 100);
+
+            const esMiPartida = usuarioActual && [m.jugador1_id, m.jugador2_id, m.jugador3_id, m.jugador4_id].includes(usuarioActual.id);
+            const liderP1 = totalP1 >= totalP2 && totalP1 > 0;
+            const liderP2 = totalP2 > totalP1;
+
+            const nomJ1 = m.j1?.nombre_completo || 'Jugador 1';
+            const nomJ2 = m.j2?.nombre_completo || 'Jugador 2';
+            const nomJ3 = m.j3?.nombre_completo || 'Jugador 3';
+            const nomJ4 = m.j4?.nombre_completo || 'Jugador 4';
+
+            contenedor.innerHTML += `
+            <div class="mesa-card-vivo">
+                <div class="mesa-header-vivo">
+                    <div>
+                        <strong style="font-size: 1rem; color: #f8fafc;">🪑 Mesa #${idx + 1}</strong>
+                        ${esMiPartida ? '<span class="badge-tu-partida">Tu partida</span>' : ''}
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">Modalidad: ${limitePuntos} puntos</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Rondas</span>
+                        <div style="font-size: 1.1rem; font-weight: bold; color: #f8fafc;">${rondas}</div>
+                    </div>
+                </div>
+
+                <div class="marcador-grid">
+                    <div class="equipo-score-box ${liderP1 ? 'lider' : ''}">
+                        <div style="font-size: 0.75rem; font-weight: bold; color: #38bdf8;">Equipo A</div>
+                        <div style="font-size: 0.85rem; font-weight: bold; margin: 4px 0;">${nomJ1} & ${nomJ3}</div>
+                        <div class="score-a">${totalP1}</div>
+                    </div>
+                    <div class="equipo-score-box ${liderP2 ? 'lider' : ''}">
+                        <div style="font-size: 0.75rem; font-weight: bold; color: #f87171;">Equipo B</div>
+                        <div style="font-size: 0.85rem; font-weight: bold; margin: 4px 0;">${nomJ2} & ${nomJ4}</div>
+                        <div class="score-b">${totalP2}</div>
+                    </div>
+                </div>
+
+                <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
+                        <span>Progreso</span>
+                        <span>${progreso}%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" style="width: ${progreso}%;"></div>
+                    </div>
+                </div>
+
+                <button class="btn" style="min-height:38px; font-size:0.85rem; margin-top: 4px;" onclick="window.location.href='mesa.html?id=${m.id}'">Entrar a la Mesa</button>
+            </div>
+            `;
+        });
+    }
+</script>
+</body>
+</html>
