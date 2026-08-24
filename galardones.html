@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salón de Galardones - Club Dominó y Romo</title>
+    
+    <!-- Script de carga inmediata para el tema y la función global -->
+    <script>
+        (function() {
+            try {
+                const savedTheme = localStorage.getItem('theme') || 'dark';
+                if (savedTheme === 'light') {
+                    document.documentElement.classList.add('light-mode');
+                }
+            } catch (e) {
+                console.error("Error al cargar el tema:", e);
+            }
+        })();
+
+        // Función global de tema aislada para evitar que dependencias fallen
+        function cambiarTema() {
+            const html = document.documentElement;
+            html.classList.toggle('light-mode');
+            const currentTheme = html.classList.contains('light-mode') ? 'light' : 'dark';
+            try {
+                localStorage.setItem('theme', currentTheme);
+            } catch (e) {
+                console.warn('No se pudo guardar la preferencia de tema:', e);
+            }
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="cache.js"></script>
+    <style>
+    :root {
+        --bg-color: #0b1120;
+        --card-bg: #152238;
+        --input-bg: #1e2d4a;
+        --border-color: #263859;
+        --accent-blue: #2563eb;
+        --accent-green: #10b981;
+        --accent-red: #ef4444;
+        --accent-amber: #f59e0b;
+        --text: #ffffff;
+        --text-muted: #8e9bb0;
+        --cyan-title: #38bdf8;
+    }
+
+    /* Variables cuando el modo claro está activo */
+    html.light-mode {
+        --bg-color: #f1f5f9;
+        --card-bg: #ffffff;
+        --input-bg: #e2e8f0;
+        --border-color: #cbd5e1;
+        --accent-blue: #2563eb;
+        --accent-green: #059669;
+        --accent-red: #dc2626;
+        --accent-amber: #d97706;
+        --text: #0f172a;
+        --text-muted: #64748b;
+        --cyan-title: #0284c7;
+    }
+
+    * { 
+        box-sizing: border-box; 
+        margin: 0; 
+        padding: 0; 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body { 
+        background-color: var(--bg-color); 
+        color: var(--text); 
+        padding: 16px 12px; 
+        display: flex; 
+        justify-content: center;
+        transition: background-color 0.3s, color 0.3s;
+    }
+
+    .container { 
+        width: 100%; 
+        max-width: 520px; 
+        display: flex; 
+        flex-direction: column; 
+        gap: 16px; 
+    } 
+    
+    header { 
+        text-align: center; 
+        padding: 8px 0 12px 0; 
+    }
+    header h1 { 
+        font-size: 1.8rem; 
+        font-weight: 900; 
+        color: var(--cyan-title); 
+    }
+    header p { 
+        color: var(--text-muted); 
+        font-size: 0.9rem; 
+        margin-top: 2px;
+    }
+
+    .card { 
+        background: var(--card-bg); 
+        border-radius: 16px; 
+        padding: 18px; 
+        border: 1px solid var(--border-color); 
+        transition: background-color 0.3s, border-color 0.3s;
+    }
+
+    .btn { 
+        width: 100%; 
+        min-height: 44px; 
+        padding: 10px; 
+        border: none; 
+        border-radius: 10px; 
+        font-weight: 800; 
+        cursor: pointer; 
+        background: var(--input-bg); 
+        color: var(--text); 
+        font-size: 0.95rem; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        gap: 8px;
+        text-decoration: none;
+        border: 1px solid var(--border-color);
+        transition: background-color 0.2s;
+    }
+
+    .btn:hover {
+        background-color: var(--border-color);
+    }
+
+    .nav-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .tabla-stats { 
+        width: 100%; 
+        border-collapse: collapse; 
+        text-align: left; 
+        font-size: 0.85rem; 
+        margin-top: 10px; 
+    }
+    .tabla-stats th { 
+        padding: 10px 8px; 
+        color: var(--text-muted); 
+        border-bottom: 1px solid var(--border-color); 
+        font-weight: 600; 
+    }
+    .tabla-stats td { 
+        padding: 10px 8px; 
+        border-bottom: 1px solid var(--border-color); 
+        vertical-align: middle; 
+    }
+
+    .seccion-titulo {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1.1rem;
+        font-weight: 800;
+        margin-bottom: 4px;
+        color: var(--cyan-title);
+    }
+
+    .badge-oro { color: #eab308; font-weight: 900; }
+    .badge-plata { color: var(--text-muted); font-weight: 900; }
+    .badge-bronce { color: #d97706; font-weight: 900; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Salón de Galardones</h1>
+            <p>Historial de Condecoraciones y Títulos</p>
+        </header>
+
+        <!-- Barra de navegación y selector de tema -->
+        <div class="nav-actions">
+            <a href="index.html" class="btn" style="flex: 1;">⬅️ Volver al Inicio</a>
+            <button type="button" class="btn" onclick="cambiarTema()" style="width: auto; padding: 0 16px;" title="Cambiar Modo Claro/Oscuro">🌓 Tema</button>
+        </div>
+
+        <!-- RANKING JUGADOR DE LA SEMANA -->
+        <div class="card">
+            <div class="seccion-titulo">
+                <span>🔥</span>
+                <h3>Top: Jugador de la Semana</h3>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+                Conteo histórico de cuántas veces un jugador ha cumplido el galardón "On Fire" (Mín. 8 manos y 75% eficiencia en Jueves/Viernes de madrugada)[cite: 11].
+            </p>
+            <div style="overflow-x: auto;">
+                <table class="tabla-stats">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px; text-align: center;">#</th>
+                            <th>Jugador</th>
+                            <th style="text-align: center;">Veces Ganado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpo-ranking-semana">
+                        <tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 12px 0;">Calculando galardones semanales...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- HISTÓRICO JUGADOR DEL MES -->
+        <div class="card">
+            <div class="seccion-titulo">
+                <span>🏆</span>
+                <h3>Jugador del Mes (Eficiencia &ge; 30 manos)</h3>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+                Mejor eficiencia registrada por mes calendario (del día 1 al 31) con un requisito mínimo de 30 manos jugadas[cite: 11].
+            </p>
+            <div id="lista-jugador-mes" style="display: flex; flex-direction: column; gap: 12px;">
+                <div style="text-align: center; color: var(--text-muted); padding: 12px 0;">Analizando meses anteriores...</div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const SUPABASE_URL = 'https://kzbslfwupzwczmjqfjem.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6YnNsZnd1cHp3Y3ptanFmamVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDI1MzksImV4cCI6MjEwMjcxODUzOX0.qeeh2FV3zKRet-jRMVvJUwBm9jYHsLbWSYWIao574qc';
+
+    const supabase = window.supabaseClient || (window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY));
+
+    window.addEventListener('DOMContentLoaded', async () => {
+        // Usamos caché con una llave única para el salón de galardones
+        cargarConCache(
+            'cache_galardones_historicos',
+            async () => {
+                // Esta función trae los datos frescos de Supabase en segundo plano
+                const { data: perfiles } = await supabase.from('perfiles').select('*');
+                const { data: manos } = await supabase.from('manos').select('*, mesas(*)').eq('anulada', false);
+                
+                if (!perfiles || !manos) throw new Error("Faltan datos");
+                return { perfiles, manos };
+            },
+            (datos, esDeCache) => {
+                // Esta función procesa y pinta los datos tanto si vienen de caché como si son frescos
+                procesarYRenderizarGalardones(datos.perfiles, datos.manos);
+                
+                if (esDeCache) {
+                    console.log("Mostrando galardones guardados en caché local...");
+                }
+            }
+        );
+    });
+
+    function procesarYRenderizarGalardones(perfiles, manos) {
+        let semanasMap = {};
+
+        manos.forEach(m => {
+            if (!m.fecha_hora) return;
+            let fecha = new Date(m.fecha_hora);
+            let diaSemana = fecha.getDay();
+            let hora = fecha.getHours();
+
+            let d = new Date(fecha);
+            if (diaSemana < 4 || (diaSemana === 4 && hora < 7)) {
+                d.setDate(d.getDate() - (diaSemana + 3) % 7);
+            } else {
+                let diff = diaSemana - 4;
+                d.setDate(d.getDate() - diff);
+            }
+            let semanaKey = `${d.getFullYear()}-W${getNumeroSemana(d)}`;
+
+            if (!semanasMap[semanaKey]) semanasMap[semanaKey] = {};
+            let semData = semanasMap[semanaKey];
+
+            let esJuevesMadrugada = (diaSemana === 4 && hora >= 0 && hora < 7);
+            let esViernesMadrugada = (diaSemana === 5 && hora >= 0 && hora < 7);
+            if (!esJuevesMadrugada && !esViernesMadrugada) return;
+
+            let mesa = m.mesas;
+            if (!mesa) return;
+
+            let p1 = mesa.jugador1_id, p2 = mesa.jugador2_id, p3 = mesa.jugador3_id, p4 = mesa.jugador4_id;
+            let pts1 = m.puntos_pareja1 || 0, pts2 = m.puntos_pareja2 || 0;
+            let ganadora = (pts1 > pts2) ? 1 : (pts2 > pts1) ? 2 : (m.ganador_pareja || 0);
+
+            [p1, p3].forEach(id => {
+                if (!id) return;
+                if (!semData[id]) semData[id] = { vic: 0, manos: 0 };
+                semData[id].manos++;
+                if (ganadora === 1) semData[id].vic++;
+            });
+            [p2, p4].forEach(id => {
+                if (!id) return;
+                if (!semData[id]) semData[id] = { vic: 0, manos: 0 };
+                semData[id].manos++;
+                if (ganadora === 2) semData[id].vic++;
+            });
+        });
+
+        let conteoGalardonSemana = {};
+        Object.keys(semanasMap).forEach(semKey => {
+            let jugadoresSemana = semanasMap[semKey];
+            let mejorJugadorSemana = null;
+            let maxEficiencia = 0;
+
+            Object.keys(jugadoresSemana).forEach(id => {
+                let st = jugadoresSemana[id];
+                let ef = st.manos > 0 ? (st.vic / st.manos) : 0;
+                if (st.manos >= 8 && ef >= 0.75) {
+                    if (ef > maxEficiencia) {
+                        maxEficiencia = ef;
+                        mejorJugadorSemana = id;
+                    }
+                }
+            });
+
+            if (mejorJugadorSemana) {
+                conteoGalardonSemana[mejorJugadorSemana] = (conteoGalardonSemana[mejorJugadorSemana] || 0) + 1;
+            }
+        });
+
+        let tbodySemana = document.getElementById('cuerpo-ranking-semana');
+        let arraySemana = Object.keys(conteoGalardonSemana).map(id => {
+            let p = perfiles.find(item => item.id === id);
+            let nombre = p ? (p.username || p.nombre_completo) : 'Jugador';
+            return { nombre, veces: conteoGalardonSemana[id] };
+        }).sort((a, b) => b.veces - a.veces);
+
+        if (arraySemana.length === 0) {
+            tbodySemana.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 12px 0;">Aún no se registran galardones semanales completados.</td></tr>`;
+        } else {
+            tbodySemana.innerHTML = '';
+            arraySemana.forEach((item, idx) => {
+                let badgeClass = idx === 0 ? 'badge-oro' : idx === 1 ? 'badge-plata' : idx === 2 ? 'badge-bronce' : '';
+                tbodySemana.innerHTML += `
+                    <tr>
+                        <td style="text-align: center;" class="${badgeClass}">${idx + 1}°</td>
+                        <td style="font-weight: bold;">${item.nombre}</td>
+                        <td style="text-align: center; font-weight: 900; color: var(--accent-amber);">${item.veces}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        let mesesMap = {};
+
+        manos.forEach(m => {
+            if (!m.fecha_hora) return;
+            let fecha = new Date(m.fecha_hora);
+            let mesKey = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+
+            if (!mesesMap[mesKey]) mesesMap[mesKey] = {};
+            let mesData = mesesMap[mesKey];
+
+            let mesa = m.mesas;
+            if (!mesa) return;
+
+            let p1 = mesa.jugador1_id, p2 = mesa.jugador2_id, p3 = mesa.jugador3_id, p4 = mesa.jugador4_id;
+            let pts1 = m.puntos_pareja1 || 0, pts2 = m.puntos_pareja2 || 0;
+            let ganadora = (pts1 > pts2) ? 1 : (pts2 > pts1) ? 2 : (m.ganador_pareja || 0);
+
+            [p1, p3].forEach(id => {
+                if (!id) return;
+                if (!mesData[id]) mesData[id] = { vic: 0, der: 0, manos: 0 };
+                mesData[id].manos++;
+                if (ganadora === 1) mesData[id].vic++;
+                else if (ganadora === 2) mesData[id].der++;
+            });
+            [p2, p4].forEach(id => {
+                if (!id) return;
+                if (!mesData[id]) mesData[id] = { vic: 0, der: 0, manos: 0 };
+                mesData[id].manos++;
+                if (ganadora === 2) mesData[id].vic++;
+                else if (ganadora === 1) mesData[id].der++;
+            });
+        });
+
+        let contenedorMes = document.getElementById('lista-jugador-mes');
+        let mesesOrdenados = Object.keys(mesesMap).sort().reverse();
+
+        let htmlMeses = '';
+        let mesesConGanador = 0;
+
+        mesesOrdenados.forEach(mesKey => {
+            let jugadoresMes = mesesMap[mesKey];
+            let candidatosMes = [];
+
+            Object.keys(jugadoresMes).forEach(id => {
+                let st = jugadoresMes[id];
+                if (st.manos >= 30) {
+                    let ef = (st.vic / st.manos) * 100;
+                    candidatosMes.push({ id, ...st, eficiencia: ef });
+                }
+            });
+
+            candidatosMes.sort((a, b) => b.eficiencia - a.eficiencia || b.vic - a.vic);
+
+            if (candidatosMes.length > 0) {
+                mesesConGanador++;
+                let ganadorMes = candidatosMes[0];
+                let perfilGanador = perfiles.find(p => p.id === ganadorMes.id);
+                let nombreGanador = perfilGanador ? (perfilGanador.username || perfilGanador.nombre_completo) : 'Jugador';
+
+                let partesFecha = mesKey.split('-');
+                let nombreMesFormateado = obtenerNombreMes(parseInt(partesFecha[1])) + ' ' + partesFecha[0];
+
+                htmlMeses += `
+                    <div style="background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px;">
+                        <div style="font-size: 0.75rem; color: var(--cyan-title); font-weight: bold; text-transform: uppercase;">📅 ${nombreMesFormateado}</div>
+                        <div style="font-size: 1.15rem; font-weight: 900; color: var(--text); margin-top: 4px;">👑 ${nombreGanador}</div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">
+                            <span>Eficiencia: <strong style="color: var(--accent-green);">${ganadorMes.eficiencia.toFixed(1)}%</strong></span>
+                            <span>Manos: ${ganadorMes.manos} (${ganadorMes.vic} V / ${ganadorMes.der} D)</span>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+
+        if (mesesConGanador === 0) {
+            contenedorMes.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 12px 0;">Ningún jugador ha alcanzado aún las 30 manos mínimas en un mes calendario.</div>`;
+        } else {
+            contenedorMes.innerHTML = htmlMeses;
+        }
+    }
+
+    function getNumeroSemana(d) {
+        d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+        let yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+        let weekNo = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+        return weekNo;
+    }
+
+    function obtenerNombreMes(num) {
+        const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        return meses[num - 1] || '';
+    }
+</script>
+</body>
+</html>
