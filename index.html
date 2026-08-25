@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Club Dominó y Romo</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b1120">
+    <!-- Archivo de caché centralizado -->
+    <script src="cache.js"></script>
+    <script>
+        // Carga inmediata del tema antes de renderizar
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            if (savedTheme === 'light') {
+                document.documentElement.classList.add('light-mode');
+            }
+        })();
+    </script>
+    <style>
+    :root {
+        --bg-color: #0b1120;
+        --card-bg: #152238;
+        --input-bg: #1e2d4a;
+        --border-color: #263859;
+        
+        --accent-blue: #2563eb;
+        --accent-blue-hover: #1d4ed8;
+        --accent-green: #10b981;
+        --accent-green-hover: #059669;
+        --accent-red: #ef4444;
+        --accent-purple: #8b5cf6;
+        --accent-amber: #f59e0b;
+        
+        --text: #ffffff;
+        --text-muted: #8e9bb0;
+        --cyan-title: #38bdf8;
+
+        --sub-bg: #0d1726;
+        --score-bg: #152238;
+        --table-border: rgba(255,255,255,0.05);
+        --progress-bg: #0b1120;
+    }
+
+    html.light-mode {
+        --bg-color: #f1f5f9;
+        --card-bg: #ffffff;
+        --input-bg: #f8fafc;
+        --border-color: #cbd5e1;
+        
+        --text: #0f172a;
+        --text-muted: #64748b;
+        --cyan-title: #0284c7;
+
+        --sub-bg: #f8fafc;
+        --score-bg: #f1f5f9;
+        --table-border: rgba(0,0,0,0.08);
+        --progress-bg: #e2e8f0;
+    }
+
+    * { 
+        box-sizing: border-box; 
+        margin: 0; 
+        padding: 0; 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    body { 
+        background-color: var(--bg-color); 
+        color: var(--text); 
+        padding: 16px 12px; 
+        display: flex; 
+        justify-content: center; 
+    }
+
+    .container { 
+        width: 100%; 
+        max-width: 520px; 
+        display: flex; 
+        flex-direction: column; 
+        gap: 16px; 
+    } 
+    
+    header { 
+        text-align: center; 
+        padding: 8px 0 12px 0; 
+    }
+    header h1 { 
+        font-size: 2rem; 
+        font-weight: 900; 
+        color: var(--cyan-title); 
+        letter-spacing: -0.5px;
+    }
+    header p { 
+        color: var(--text-muted); 
+        font-size: 0.9rem; 
+        margin-top: 2px;
+    }
+
+    .card { 
+        background: var(--card-bg); 
+        border-radius: 16px; 
+        padding: 18px; 
+        border: 1px solid var(--border-color); 
+    }
+
+    .galardon-card {
+        background: linear-gradient(135deg, #1c1404, #2c1a04);
+        border: 1px solid #f59e0b;
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 4px 15px rgba(245, 158, 11, 0.15);
+    }
+    .galardon-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    .galardon-header h3 {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: var(--accent-amber);
+    }
+    .on-fire-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(0, 0, 0, 0.25);
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .auth-tabs-box {
+        background: var(--sub-bg);
+        padding: 6px;
+        border-radius: 12px;
+        display: flex;
+        gap: 6px;
+        margin-bottom: 16px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .tab-btn { 
+        flex: 1; 
+        min-height: 42px; 
+        background: transparent; 
+        border: none; 
+        color: var(--text-muted); 
+        font-size: 0.95rem; 
+        font-weight: 700; 
+        cursor: pointer; 
+        border-radius: 8px; 
+        transition: all 0.2s;
+    }
+    .tab-btn.active { 
+        background: var(--accent-blue); 
+        color: white; 
+    }
+
+    form { display: flex; flex-direction: column; gap: 12px; }
+    label { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
+    
+    input, select { 
+        width: 100%; 
+        padding: 12px 14px; 
+        border-radius: 10px; 
+        border: 1px solid var(--border-color); 
+        background: var(--input-bg); 
+        color: var(--text); 
+        font-size: 1rem; 
+        outline: none;
+    }
+    input::placeholder { color: var(--text-muted); opacity: 0.7; }
+    input:focus, select:focus { border-color: var(--accent-blue); }
+
+    .btn { 
+        width: 100%; 
+        min-height: 48px; 
+        padding: 12px; 
+        border: none; 
+        border-radius: 10px; 
+        font-weight: 800; 
+        cursor: pointer; 
+        background: var(--accent-blue); 
+        color: white; 
+        font-size: 1rem; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        gap: 8px;
+        text-decoration: none; 
+        transition: opacity 0.2s; 
+    }
+    .btn:active { opacity: 0.85; }
+    .btn-green { background: var(--accent-green); }
+    .btn-secondary { background: var(--input-bg); color: var(--text); border: 1px solid var(--border-color); }
+    .btn-danger { background: var(--accent-red); }
+    .btn-admin { background: var(--accent-purple); color: white; }
+    .btn-amber { background: var(--accent-amber); color: #000; }
+
+    .user-info-bar { 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        background: var(--sub-bg); 
+        padding: 12px 14px; 
+        border-radius: 10px; 
+        border: 1px solid var(--border-color);
+    }
+    
+    .equipos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+    .equipo-card-box { 
+        background: var(--sub-bg); 
+        border: 1px solid var(--border-color); 
+        border-radius: 10px; 
+        padding: 12px; 
+        display: flex; 
+        flex-direction: column; 
+        gap: 8px; 
+    }
+    .equipo-card-box h4 { font-size: 0.85rem; font-weight: 800; color: var(--cyan-title); }
+
+    .filtros-box {
+        background: var(--sub-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 12px;
+        margin-top: 10px;
+        margin-bottom: 14px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+    .filtro-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .filtro-item.full-width {
+        grid-column: span 2;
+    }
+    .filtro-item label {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .filtro-item input, .filtro-item select {
+        padding: 8px 10px;
+        font-size: 0.85rem;
+        border-radius: 8px;
+        background: var(--input-bg);
+    }
+    .btn-limpiar-filtros {
+        background: var(--input-bg);
+        color: var(--text);
+        border: 1px solid var(--border-color);
+        font-weight: 700;
+        font-size: 0.85rem;
+        border-radius: 8px;
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: background 0.2s;
+        min-height: 38px;
+    }
+    .btn-limpiar-filtros:hover {
+        opacity: 0.8;
+    }
+
+    .tabla-stats { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; margin-top: 6px; }
+    .tabla-stats th { padding: 10px 8px; color: var(--text-muted); border-bottom: 1px solid var(--border-color); font-weight: 600; }
+    .tabla-stats td { padding: 10px 8px; border-bottom: 1px solid var(--table-border); vertical-align: middle; }
+    .progress-container { display: flex; align-items: center; gap: 8px; }
+    .progress-bar-bg { flex-grow: 1; background: var(--progress-bg); height: 8px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border-color); }
+    .progress-bar-fill { height: 100%; background: var(--accent-green); border-radius: 4px; }
+    .eficiencia-txt { min-width: 42px; text-align: right; font-weight: bold; font-size: 0.75rem; }
+
+    .mesas-grid { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+    .mesa-card-vivo { 
+        background: var(--sub-bg); 
+        border: 1px solid var(--border-color); 
+        border-radius: 12px; 
+        padding: 14px; 
+        display: flex; 
+        flex-direction: column; 
+        gap: 12px; 
+    }
+    
+    .marcador-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .equipo-score-box { 
+        background: var(--score-bg); 
+        border-radius: 10px; 
+        padding: 10px; 
+        border: 1px solid var(--border-color);
+    }
+    .equipo-score-box.team-a { border-color: rgba(56, 189, 248, 0.4); }
+    .equipo-score-box.team-b { border-color: rgba(239, 68, 68, 0.4); }
+    
+    .score-a { color: var(--cyan-title); font-size: 2rem; font-weight: 900; line-height: 1; margin-top: 6px; }
+    .score-b { color: var(--accent-red); font-size: 2rem; font-weight: 900; line-height: 1; margin-top: 6px; }
+
+    .progress-track { width: 100%; height: 8px; background: var(--progress-bg); border-radius: 6px; overflow: hidden; margin-top: 4px; border: 1px solid var(--border-color); }
+    .progress-fill { height: 100%; background: var(--accent-green); transition: width 0.3s ease; }
+
+    .hidden { display: none !important; }
+    .status-badge { padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; }
+    .status-aprobado { background: #065f46; color: #34d399; }
+    .status-pendiente { background: #854d0e; color: #fef08a; }
+    
+    .cumple-banner {
+        background: linear-gradient(135deg, #1e1b4b, #312e81);
+        border: 1px solid #6366f1;
+        border-radius: 14px;
+        padding: 14px;
+        text-align: center;
+        color: #e0e7ff;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        animation: pulse-glow 2s infinite;
+    }
+    @keyframes pulse-glow {
+        0% { border-color: #6366f1; }
+        50% { border-color: #a5b4fc; box-shadow: 0 4px 20px rgba(165, 180, 252, 0.4); }
+        100% { border-color: #6366f1; }
+    }
+    </style>
+</head>
+<body>
+    <div class="container">
+    <header>
+        <img src="logo.png" alt="Logo" width="150">
+        <h1>Club Dominó y Romo</h1>
+        <p>Sistema de Anote y Estadísticas</p>
+    </header>
+
+    <!-- BANNER DE CUMPLEAÑOS DINÁMICO -->
+    <div id="cumpleanos-banner" class="cumple-banner hidden">
+        <div style="font-size: 1.3rem; font-weight: 900; color: #fde047; margin-bottom: 4px;">🎉 ¡Feliz Cumpleaños! 🎂</div>
+        <p id="cumpleanos-texto" style="font-size: 0.9rem; font-weight: 600;"></p>
+    </div>
+
+    <!-- SECCIÓN DE GALARDONES: JUGADOR ON FIRE -->
+    <div id="galardon-section" class="galardon-card hidden">
+        <div class="galardon-header">
+            <span style="font-size: 1.2rem;">🔥</span>
+            <h3>Galardón Semanal: Jugador On Fire</h3>
+        </div>
+        <div id="on-fire-container">
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 6px 0;">Calculando al más encendido...</div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN DE AUTENTICACIÓN -->
+    <div id="auth-section" class="card hidden">
+        <div class="auth-tabs-box" id="tabs-header">
+            <button class="tab-btn active" onclick="switchTab('login')">Iniciar Sesión</button>
+            <button class="tab-btn" onclick="switchTab('register')">Registrarse</button>
+        </div>
+
+        <form id="login-form" onsubmit="loginUsuario(event)">
+            <div>
+                <label>Correo Electrónico</label>
+                <input type="email" id="login-email" required placeholder="correo@ejemplo.com">
+            </div>
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <label>Contraseña</label>
+                    <a href="#" onclick="recuperarClave(event)" style="font-size: 0.8rem; color: var(--cyan-title); text-decoration: none;">¿Olvidaste tu contraseña?</a>
+                </div>
+                <input type="password" id="login-password" required placeholder="******">
+            </div>
+            <button type="submit" class="btn">Entrar</button>
+            <button type="button" class="btn btn-secondary" onclick="entrarModoInvitado()">Modo Invitado (Solo Lectura)</button>
+        </form>
+
+        <form id="register-form" class="hidden" onsubmit="registrarUsuario(event)">
+            <div>
+                <label>Nombre Completo</label>
+                <input type="text" id="reg-nombre" required placeholder="Ej. Juan Pérez">
+            </div>
+            <div>
+                <label>Usuario / Alias (para la jugada)</label>
+                <input type="text" id="reg-username" required placeholder="Ej. JuanP23">
+            </div>
+            <div>
+                <label>Correo Electrónico</label>
+                <input type="email" id="reg-email" required placeholder="correo@ejemplo.com">
+            </div>
+            <div>
+                <label>Contraseña</label>
+                <input type="password" id="reg-password" required minlength="6" placeholder="Mínimo 6 caracteres">
+            </div>
+            <button type="submit" class="btn">Crear Cuenta</button>
+        </form>
+
+        <form id="recovery-form" class="hidden" onsubmit="guardarNuevaClave(event)">
+            <h3 style="color: var(--cyan-title); font-size: 1rem; margin-bottom: 4px;">Restablecer Contraseña</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">Ingresa tu nueva contraseña para actualizar el acceso.</p>
+            <div>
+                <label>Nueva Contraseña</label>
+                <input type="password" id="new-password" required minlength="6" placeholder="Mínimo 6 caracteres">
+            </div>
+            <button type="submit" class="btn">Guardar Nueva Contraseña</button>
+        </form>
+
+        <div style="margin-top: 14px; border-top: 1px solid var(--border-color); padding-top: 14px;">
+            <a href="apunte.html" class="btn btn-amber" style="text-decoration: none;">🎲 Anote Local (Familia y Amigos)</a>
+        </div>
+    </div>
+
+    <!-- SECCIÓN DE USUARIO LOGUEADO -->
+    <div id="user-logged-section" class="card hidden">
+        <div class="user-info-bar" style="cursor: pointer;" onclick="toggleMenuUsuario()">
+            <div>
+                <span style="font-size: 0.95rem; font-weight: bold;" id="user-name-display">👤 Hola, Carga...</span>
+                <div id="user-role-display" style="font-size: 0.75rem; color: var(--text-muted);"></div>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <span id="user-status-badge" class="status-badge">...</span>
+                <span style="font-size: 0.9rem; color: var(--cyan-title); transition: transform 0.2s;" id="menu-arrow">▼</span>
+            </div>
+        </div>
+
+        <div id="user-dropdown-menu" class="hidden" style="background: var(--sub-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px; margin-top: 10px; display: flex; flex-direction: column; gap: 6px;">
+            <button class="btn btn-secondary" style="justify-content: flex-start; min-height: 40px; font-size: 0.85rem;" onclick="window.location.href='perfil.html'">👤 Mi Perfil</button>
+            <button class="btn btn-secondary" style="justify-content: flex-start; min-height: 40px; font-size: 0.85rem;" onclick="window.location.href='galardones.html'">🔥 Galardones & Salón de la Fama</button>
+            <button id="admin-panel-btn" class="btn btn-admin hidden" style="justify-content: flex-start; min-height: 40px; font-size: 0.85rem;" onclick="window.location.href='admin.html'">⚙️ Panel de Administración</button>
+            <button class="btn btn-danger" style="justify-content: flex-start; min-height: 40px; font-size: 0.85rem;" onclick="cerrarSesion()">🚪 Cerrar Sesión</button>
+        </div>
+
+        <div id="pending-alert" class="hidden" style="background: #422006; border: 1px solid #713f12; color: #fef08a; padding: 10px; border-radius: 8px; font-size: 0.85rem; margin-top: 12px;">
+            Tu cuenta está <strong>Pendiente de Aprobación</strong>. Un administrador debe autorizarte para abrir mesas.
+        </div>
+
+        <div id="acciones-usuario" class="hidden" style="display: flex; flex-direction: column; gap: 10px; margin-top: 12px;">
+            <button class="btn btn-green" onclick="toggleCrearMesa()">➕ Crear / Configurar Mesa</button>
+        </div>
+    </div>
+
+    <!-- CREAR MESA ONLINE -->
+    <div id="crear-mesa-card" class="card hidden">
+        <h3 style="margin-bottom: 12px; color: var(--cyan-title); font-size: 1.1rem; font-weight: 800;">Iniciar Nueva Mesa</h3>
+        <form onsubmit="crearNuevaMesa(event)">
+            <div>
+                <label>Puntos para ganar:</label>
+                <input type="number" id="limite-puntos-mesa" value="200" min="50" step="50">
+            </div>
+            
+            <div>
+                <label style="font-weight: bold; color: var(--cyan-title);">Equipos</label>
+                <div class="equipos-grid">
+                    <div class="equipo-card-box">
+                        <h4>Equipo A</h4>
+                        <div>
+                            <label>Jugador 1</label>
+                            <select id="select-j1" required></select>
+                        </div>
+                        <div>
+                            <label>Jugador 3</label>
+                            <select id="select-j3" required></select>
+                        </div>
+                    </div>
+
+                    <div class="equipo-card-box">
+                        <h4>Equipo B</h4>
+                        <div>
+                            <label>Jugador 2</label>
+                            <select id="select-j2" required></select>
+                        </div>
+                        <div>
+                            <label>Jugador 4</label>
+                            <select id="select-j4" required></select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-green" style="margin-top: 6px;">🪑 Abrir Mesa de Anote</button>
+        </form>
+    </div>
+
+    <!-- CLASIFICATORIA GENERAL -->
+    <div id="clasificatoria-section" class="card hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <h3 style="font-size: 1.1rem; font-weight: 800;">🏆 Clasificatoria General</h3>
+            <div style="display: flex; gap: 6px;">
+                <button class="btn btn-secondary" style="padding: 6px 10px; min-height: 36px; font-size: 0.8rem; width: auto;" onclick="toggleFiltrosDesplegables()">⚙️ Filtros</button>
+                <a href="historial.html" class="btn btn-secondary" style="padding: 6px 10px; min-height: 36px; font-size: 0.8rem; width: auto; text-decoration: none;">📋 Historial</a>
+            </div>
+        </div>
+
+        <div id="filtros-box-container" class="filtros-box hidden">
+            <div class="filtro-item">
+                <label>Tipo de Jugadores</label>
+                <select id="filtro-tipo-jugador" onchange="aplicarFiltrosClasificatoria()">
+                    <option value="miembros" selected>Miembros Oficiales</option>
+                    <option value="invitados">Invitados</option>
+                    <option value="todos">Todos (Miembros e Invitados)</option>
+                </select>
+            </div>
+            <div class="filtro-item">
+                <label>Período rápido</label>
+                <select id="filtro-periodo" onchange="cambiarPeriodoRapido(this.value)">
+                    <option value="semana_actual">Semana Actual (Jue-Mié)</option>
+                    <option value="todo">Histórico Completo</option>
+                    <option value="personalizado" selected>Personalizado</option>
+                </select>
+            </div>
+            <div class="filtro-item">
+                <label>Desde</label>
+                <input type="date" id="filtro-desde" onchange="aplicarFiltrosClasificatoria()">
+            </div>
+            <div class="filtro-item">
+                <label>Hasta</label>
+                <input type="date" id="filtro-hasta" onchange="aplicarFiltrosClasificatoria()">
+            </div>
+            <div class="filtro-item full-width">
+                <label>Mín. partidas</label>
+                <input type="number" id="filtro-min-partidas" placeholder="Sin mínimo" min="0" oninput="aplicarFiltrosClasificatoria()">
+            </div>
+            <div class="filtro-item full-width">
+                <button type="button" class="btn-limpiar-filtros" onclick="limpiarFiltrosClasificatoria()">🧹 Limpiar filtros</button>
+            </div>
+        </div>
+
+        <div style="overflow-x: auto; margin-top: 8px;">
+            <table class="tabla-stats">
+                <thead>
+                    <tr>
+                        <th style="width: 35px; text-align: center;">#</th>
+                        <th>Jugador</th>
+                        <th style="text-align: center;">Vic</th>
+                        <th style="text-align: center;">Der</th>
+                        <th style="text-align: center;">Total</th>
+                        <th>Eficiencia %</th>
+                    </tr>
+                </thead>
+                <tbody id="cuerpo-tabla-clasificatoria">
+                    <!-- Hidratación síncrona inmediata -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- MESAS EN VIVO -->
+    <div id="mesas-section" class="card hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="font-size: 1.2rem; font-weight: 800;">Mesas en Vivo</h3>
+            <button class="btn btn-secondary" style="padding: 6px 12px; min-height: 36px; font-size: 0.8rem; width: auto;" onclick="cargarMesasActivas()">🔄 Actualizar</button>
+        </div>
+        <div id="lista-mesas" class="mesas-grid">
+            <!-- Hidratación síncrona inmediata -->
+        </div>
+    </div>
+    </div>
+
+<script>
+    const SUPABASE_URL = 'https://kzbslfwupzwczmjqfjem.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6YnNsZnd1cHp3Y3ptanFmamVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDI1MzksImV4cCI6MjEwMjcxODUzOX0.qeeh2FV3zKRet-jRMVvJUwBm9jYHsLbWSYWIao574qc';
+
+    var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let usuarioActual = null;
+    let perfilUsuario = null;
+
+    let datosIndexCache = JSON.parse(localStorage.getItem('cache_index_general_datos') || '{}');
+    let cachePerfiles = datosIndexCache.perfiles || [];
+    let cacheManos = datosIndexCache.manos || [];
+    let cacheMesasCerradas = datosIndexCache.mesasCerradas || [];
+
+    // ==========================================
+    // HIDRATACIÓN SÍNCRONA INMEDIATA (Cero parpadeo)
+    // ==========================================
+    (function hidratarDesdeCacheInstantaneo() {
+        const cacheMesasStr = localStorage.getItem('cache_mesas_activas');
+        if (cacheMesasStr) {
+            try {
+                const mesasCached = JSON.parse(cacheMesasStr);
+                const contenedor = document.getElementById('lista-mesas');
+                if (contenedor && mesasCached.length > 0) {
+                    renderizarListaMesas(mesasCached, contenedor);
+                }
+            } catch (e) {
+                console.error("Error al pintar caché síncrona de mesas:", e);
+            }
+        }
+
+        const cacheIndexStr = localStorage.getItem('cache_index_general_datos');
+        if (cacheIndexStr) {
+            try {
+                const datosCached = JSON.parse(cacheIndexStr);
+                if (datosCached && datosCached.perfiles) {
+                    cachePerfiles = datosCached.perfiles;
+                    cacheManos = datosCached.manos || [];
+                    cacheMesasCerradas = datosCached.mesasCerradas || [];
+                    aplicarFiltrosClasificatoria();
+                    calcularJugadorOnFire();
+                    verificarCumpleanosClub();
+                }
+            } catch (e) {
+                console.error("Error al pintar caché síncrona de clasificación:", e);
+            }
+        }
+    })();
+
+    window.addEventListener('DOMContentLoaded', async () => {
+        supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'PASSWORD_RECOVERY') {
+                mostrarFormularioRecuperacion();
+            }
+        });
+
+        await verificarSesion();
+        await cargarMesasActivas();
+        await inicializarDatosClasificatoria();
+
+        supabase
+            .channel('cambios-en-vivo-general')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'manos' }, () => {
+                inicializarDatosClasificatoria(true);
+                cargarMesasActivas();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'mesas' }, () => {
+                inicializarDatosClasificatoria(true);
+                cargarMesasActivas();
+            })
+            .subscribe();
+    });
+
+    function toggleFiltrosDesplegables() {
+        const box = document.getElementById('filtros-box-container');
+        box.classList.toggle('hidden');
+    }
+
+    async function verificarCumpleanosClub() {
+        if (document.getElementById('auth-section').classList.contains('hidden')) {
+            let perfiles = cachePerfiles;
+            if (!perfiles || perfiles.length === 0) return;
+
+            const hoy = new Date();
+            const mesHoy = hoy.getMonth(); 
+            const diaHoy = hoy.getDate();
+            const diaSemanaHoy = hoy.getDay(); 
+            const horaActual = hoy.getHours();
+
+            let cumpleanerosTexto = [];
+
+            perfiles.forEach(p => {
+                if (!p.fecha_nacimiento) return;
+                const partes = p.fecha_nacimiento.split('-');
+                if (partes.length < 3) return;
+
+                const mesCumple = parseInt(partes[1]) - 1;
+                const diaCumple = parseInt(partes[2]);
+                const nombreMostrar = p.username || p.nombre_completo || 'Jugador';
+
+                if (mesCumple === mesHoy && diaCumple === diaHoy) {
+                    cumpleanerosTexto.push(`¡Hoy está de cumpleaños <strong>${nombreMostrar}</strong>! Le deseamos muchas felicidades en su día.`);
+                } else {
+                    let fechaCumpleEsteAno = new Date(hoy.getFullYear(), mesCumple, diaCumple);
+                    let fechaJuevesCumple = new Date(fechaCumpleEsteAno);
+                    let dayOfWeek = fechaJuevesCumple.getDay();
+                    
+                    if (dayOfWeek !== 4) {
+                        let diff = (4 - dayOfWeek + 7) % 7;
+                        if (diff === 0) diff = 7;
+                        fechaJuevesCumple.setDate(fechaJuevesCumple.getDate() + diff);
+                    }
+
+                    const esMismoJueves = (
+                        hoy.getFullYear() === fechaJuevesCumple.getFullYear() &&
+                        hoy.getMonth() === fechaJuevesCumple.getMonth() &&
+                        hoy.getDate() === fechaJuevesCumple.getDate()
+                    );
+
+                    if (esMismoJueves && diaSemanaHoy === 4 && horaActual >= 19 && horaActual < 22) {
+                        cumpleanerosTexto.push(`¡Celebrando el cumpleaños de <strong>${nombreMostrar}</strong> en nuestra tradicional jugada de jueves!`);
+                    }
+                }
+            });
+
+            if (cumpleanerosTexto.length > 0) {
+                const banner = document.getElementById('cumpleanos-banner');
+                const textoBox = document.getElementById('cumpleanos-texto');
+                textoBox.innerHTML = cumpleanerosTexto.join('<br>');
+                banner.classList.remove('hidden');
+            }
+        }
+    }
+
+    function calcularJugadorOnFire() {
+        const galardonCard = document.getElementById('galardon-section');
+        const contenedorOnFire = document.getElementById('on-fire-container');
+        
+        if (!cacheManos || cacheManos.length === 0 || !cachePerfiles || cachePerfiles.length === 0) {
+            galardonCard.classList.add('hidden');
+            return;
+        }
+
+        let statsOnFire = {};
+
+        cacheManos.forEach(m => {
+            if (!m.fecha_hora || m.anulada) return;
+            const fechaMano = new Date(m.fecha_hora);
+            const diaSemana = fechaMano.getDay(); 
+            const hora = fechaMano.getHours();
+
+            const esJuevesMadrugada = (diaSemana === 4 && hora >= 0 && hora < 7);
+            const esViernesMadrugada = (diaSemana === 5 && hora >= 0 && hora < 7);
+
+            if (!esJuevesMadrugada && !esViernesMadrugada) return;
+
+            const mesa = m.mesas;
+            if (!mesa) return;
+
+            const p1 = mesa.jugador1_id, p2 = mesa.jugador2_id, p3 = mesa.jugador3_id, p4 = mesa.jugador4_id;
+            const pts1 = m.puntos_pareja1 || 0;
+            const pts2 = m.puntos_pareja2 || 0;
+            let ganadora = 0;
+            if (pts1 > pts2) ganadora = 1;
+            else if (pts2 > pts1) ganadora = 2;
+            else if (m.ganador_pareja) ganadora = m.ganador_pareja;
+
+            [p1, p3].forEach(id => {
+                if (!id) return;
+                if (!statsOnFire[id]) statsOnFire[id] = { vic: 0, der: 0, manos: 0 };
+                statsOnFire[id].manos++;
+                if (ganadora === 1) statsOnFire[id].vic++;
+                else if (ganadora === 2) statsOnFire[id].der++;
+            });
+
+            [p2, p4].forEach(id => {
+                if (!id) return;
+                if (!statsOnFire[id]) statsOnFire[id] = { vic: 0, der: 0, manos: 0 };
+                statsOnFire[id].manos++;
+                if (ganadora === 2) statsOnFire[id].vic++;
+                else if (ganadora === 1) statsOnFire[id].der++;
+            });
+        });
+
+        let candidatos = [];
+        Object.keys(statsOnFire).forEach(id => {
+            const data = statsOnFire[id];
+            const eficiencia = data.manos > 0 ? (data.vic / data.manos) : 0;
+            
+            if (data.manos >= 8 && eficiencia >= 0.75) {
+                const perfil = cachePerfiles.find(p => p.id === id);
+                if (perfil) {
+                    const nombre = perfil.username || perfil.nombre_completo || 'Jugador';
+                    candidatos.push({ nombre, eficiencia: eficiencia * 100, manos: data.manos, vic: data.vic });
+                }
+            }
+        });
+
+        candidatos.sort((a, b) => b.eficiencia - a.eficiencia || b.manos - a.manos);
+
+        if (candidatos.length === 0) {
+            galardonCard.classList.add('hidden');
+            return;
+        }
+
+        galardonCard.classList.remove('hidden');
+        const ganador = candidatos[0];
+        contenedorOnFire.innerHTML = `
+            <div class="on-fire-content">
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--accent-amber); font-weight: bold; text-transform: uppercase;">Destacado Oficial</div>
+                    <div style="font-size: 1.1rem; font-weight: 900; color: var(--text); margin-top: 2px;">${ganador.nombre}</div>
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">Manos jugadas: ${ganador.manos} (${ganador.vic} Victorias)</div>
+                </div>
+                <div style="text-align: right;">
+                    <span style="font-size: 0.7rem; color: var(--text-muted); display: block;">Eficiencia</span>
+                    <span style="font-size: 1.3rem; font-weight: 900; color: var(--accent-green);">${ganador.eficiencia.toFixed(1)}%</span>
+                </div>
+            </div>
+        `;
+    }
+
+    function toggleMenuUsuario() {
+        const menu = document.getElementById('user-dropdown-menu');
+        const arrow = document.getElementById('menu-arrow');
+        menu.classList.toggle('hidden');
+        arrow.style.transform = menu.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+    }
+
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('recovery-form').classList.add('hidden');
+        document.getElementById('tabs-header').classList.remove('hidden');
+
+        if(tab === 'login') {
+            document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            document.getElementById('login-form').classList.remove('hidden');
+            document.getElementById('register-form').classList.add('hidden');
+        } else {
+            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.getElementById('login-form').classList.add('hidden');
+            document.getElementById('register-form').classList.remove('hidden');
+        }
+    }
+
+    function mostrarFormularioRecuperacion() {
+        document.getElementById('auth-section').classList.remove('hidden');
+        document.getElementById('user-logged-section').classList.add('hidden');
+        document.getElementById('tabs-header').classList.add('hidden');
+        document.getElementById('login-form').classList.add('hidden');
+        document.getElementById('register-form').classList.add('hidden');
+        document.getElementById('recovery-form').classList.remove('hidden');
+    }
+
+    async function verificarSesion() {
+        if (window.location.hash.includes('type=recovery')) {
+            mostrarFormularioRecuperacion();
+            return;
+        }
+
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session && !document.getElementById('recovery-form')?.classList?.contains('hidden')) {
+            return;
+        }
+
+        if (session) {
+            usuarioActual = session.user;
+            await cargarPerfil();
+        } 
+        else if (localStorage.getItem('modo_invitado') === 'true') {
+            mostrarModoInvitado();
+        } 
+        else {
+            mostrarFormularioAuth();
+        }
+    }
+
+    async function cargarPerfil() {
+        const perfilCache = localStorage.getItem('cache_perfil');
+        if (perfilCache) {
+            perfilUsuario = JSON.parse(perfilCache);
+            pintarDatosPerfilUI();
+        }
+
+        const { data, error } = await supabase
+            .from('perfiles')
+            .select('*')
+            .eq('id', usuarioActual.id)
+            .single();
+
+        if (!error && data) {
+            perfilUsuario = data;
+            localStorage.setItem('cache_perfil', JSON.stringify(data));
+            pintarDatosPerfilUI();
+        }
+    }
+
+    function pintarDatosPerfilUI() {
+        if (!perfilUsuario) return;
+        
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('user-logged-section').classList.remove('hidden');
+        document.getElementById('clasificatoria-section').classList.remove('hidden');
+        document.getElementById('mesas-section').classList.remove('hidden');
+        
+        const mostrarNombre = perfilUsuario.username ? perfilUsuario.username : perfilUsuario.nombre_completo;
+        document.getElementById('user-name-display').innerText = `👤 Hola, ${mostrarNombre}`;
+        document.getElementById('user-role-display').innerText = `Rol: ${perfilUsuario.rol}`;
+
+        const badge = document.getElementById('user-status-badge');
+        badge.innerText = (perfilUsuario.estado || 'pendiente').toUpperCase();
+        badge.className = `status-badge status-${perfilUsuario.estado}`;
+
+        const rolUsuario = (perfilUsuario.rol || '').toString().trim().toUpperCase();
+        const rolesAdmin = ['ADMIN', 'ADMINISTRADOR', 'SUPERUSER', 'SUPERUSUARIO', 'SUPER_ADMIN', 'SUPERADMIN'];
+
+        if (rolesAdmin.includes(rolUsuario)) {
+            document.getElementById('admin-panel-btn').classList.remove('hidden');
+        } else {
+            document.getElementById('admin-panel-btn').classList.add('hidden');
+        }
+
+        if (perfilUsuario.estado === 'pendiente') {
+            document.getElementById('pending-alert').classList.remove('hidden');
+            document.getElementById('acciones-usuario').classList.add('hidden');
+            document.getElementById('crear-mesa-card').classList.add('hidden');
+        } else {
+            document.getElementById('pending-alert').classList.add('hidden');
+            document.getElementById('acciones-usuario').classList.remove('hidden');
+            cargarJugadoresAprobados();
+        }
+    }
+
+    function toggleCrearMesa() {
+        const card = document.getElementById('crear-mesa-card');
+        card.classList.toggle('hidden');
+        if (!card.classList.contains('hidden')) {
+            cargarJugadoresAprobados();
+        }
+    }
+
+    async function loginUsuario(e) {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+        if (error) alert('Error al iniciar sesión: ' + error.message);
+        else {
+            localStorage.removeItem('modo_invitado');
+            verificarSesion();
+        }
+    }
+
+    async function recuperarClave(e) {
+        if (e) e.preventDefault();
+        const email = document.getElementById('login-email').value || prompt('Ingresa tu correo electrónico registrado:');
+        
+        if (!email) return;
+
+        const redirectUrl = window.location.origin + window.location.pathname;
+
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: redirectUrl
+        });
+
+        if (error) alert('Error al enviar solicitud: ' + error.message);
+        else alert('Te hemos enviado un correo electrónico para restablecer tu contraseña.');
+    }
+
+    async function guardarNuevaClave(e) {
+        e.preventDefault();
+        const newPassword = document.getElementById('new-password').value;
+
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+        if (error) alert('Error al cambiar la contraseña: ' + error.message);
+        else {
+            alert('Contraseña actualizada correctamente.');
+            location.href = window.location.pathname;
+        }
+    }
+
+    async function registrarUsuario(e) {
+        e.preventDefault();
+        const nombre = document.getElementById('reg-nombre').value;
+        const username = document.getElementById('reg-username').value.trim();
+        const email = document.getElementById('reg-email').value;
+        const password = document.getElementById('reg-password').value;
+
+        // Solo ejecutamos el signUp. Los datos viajan en 'options.data' 
+        // y el Trigger de Supabase se encarga de guardarlos en 'perfiles' automáticamente.
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { 
+                data: { 
+                    nombre_completo: nombre,
+                    username: username
+                } 
+            }
+        });
+
+        if (error) {
+            alert('Error al registrar: ' + error.message);
+            return;
+        }
+
+        alert('Registro completado. Tu cuenta requerirá aprobación del Administrador.');
+        switchTab('login');
+    }
+    
+    function entrarModoInvitado() {
+        localStorage.setItem('modo_invitado', 'true');
+        mostrarModoInvitado();
+    }
+
+    function mostrarModoInvitado() {
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('user-logged-section').classList.remove('hidden');
+        document.getElementById('acciones-usuario').classList.add('hidden');
+        document.getElementById('crear-mesa-card').classList.add('hidden');
+        
+        document.getElementById('clasificatoria-section').classList.remove('hidden');
+        document.getElementById('mesas-section').classList.remove('hidden');
+        verificarCumpleanosClub();
+        calcularJugadorOnFire();
+
+        document.getElementById('user-name-display').innerText = '👤 Hola, Modo Invitado';
+        document.getElementById('user-role-display').innerText = 'Espectador';
+        document.getElementById('admin-panel-btn').classList.add('hidden');
+        
+        const badge = document.getElementById('user-status-badge');
+        badge.innerText = 'INVITADO';
+        badge.className = 'status-badge';
+    }
+
+    function mostrarFormularioAuth() {
+        document.getElementById('auth-section').classList.remove('hidden');
+        document.getElementById('user-logged-section').classList.add('hidden');
+        document.getElementById('crear-mesa-card').classList.add('hidden');
+        
+        document.getElementById('cumpleanos-banner').classList.add('hidden');
+        document.getElementById('galardon-section').classList.add('hidden');
+        document.getElementById('clasificatoria-section').classList.add('hidden');
+        document.getElementById('mesas-section').classList.add('hidden');
+    }
+
+    async function cerrarSesion() {
+        await supabase.auth.signOut();
+        localStorage.removeItem('modo_invitado');
+        location.reload();
+    }
+
+    async function cargarJugadoresAprobados() {
+        const { data: mesasAbiertas, error: errMesas } = await supabase
+            .from('mesas')
+            .select('jugador1_id, jugador2_id, jugador3_id, jugador4_id')
+            .eq('estado', 'abierta');
+
+        let jugadoresOcupados = new Set();
+        if (!errMesas && mesasAbiertas) {
+            mesasAbiertas.forEach(m => {
+                if (m.jugador1_id) jugadoresOcupados.add(m.jugador1_id);
+                if (m.jugador2_id) jugadoresOcupados.add(m.jugador2_id);
+                if (m.jugador3_id) jugadoresOcupados.add(m.jugador3_id);
+                if (m.jugador4_id) jugadoresOcupados.add(m.jugador4_id);
+            });
+        }
+
+        const { data, error } = await supabase
+            .from('perfiles')
+            .select('*')
+            .eq('estado', 'aprobado')
+            .order('username', { ascending: true });
+
+        if (error) return;
+
+        const selects = ['select-j1', 'select-j2', 'select-j3', 'select-j4'];
+        selects.forEach(id => {
+            const select = document.getElementById(id);
+            select.innerHTML = '<option value="">-- Seleccionar --</option>';
+            data.forEach(j => {
+                if (jugadoresOcupados.has(j.id)) return;
+                const nombreMostrar = j.username || j.nombre_completo;
+                select.innerHTML += `<option value="${j.id}">${nombreMostrar}</option>`;
+            });
+        });
+    }
+
+    async function crearNuevaMesa(e) {
+        e.preventDefault();
+        const j1 = document.getElementById('select-j1').value;
+        const j2 = document.getElementById('select-j2').value;
+        const j3 = document.getElementById('select-j3').value;
+        const j4 = document.getElementById('select-j4').value;
+        const limitePuntos = parseInt(document.getElementById('limite-puntos-mesa').value) || 200;
+
+        const setJugadores = new Set([j1, j2, j3, j4]);
+        if (setJugadores.size < 4) {
+            alert('Debes seleccionar 4 jugadores distintos para abrir la mesa.');
+            return;
+        }
+
+        const { data, error } = await supabase
+            .from('mesas')
+            .insert([{
+                jugador1_id: j1,
+                jugador2_id: j2,
+                jugador3_id: j3,
+                jugador4_id: j4,
+                limite_puntos: limitePuntos,
+                estado: 'abierta'
+            }])
+            .select()
+            .single();
+
+        if (error) alert('Error al crear mesa: ' + error.message);
+        else window.location.href = `mesa.html?id=${data.id}`;
+    }
+
+    async function inicializarDatosClasificatoria(esSilencioso = false) {
+        const cacheIndexStr = localStorage.getItem('cache_index_general_datos');
+        if (cacheIndexStr && !esSilencioso) {
+            try {
+                const datosCached = JSON.parse(cacheIndexStr);
+                if (datosCached && datosCached.perfiles) {
+                    cachePerfiles = datosCached.perfiles;
+                    cacheManos = datosCached.manos || [];
+                    cacheMesasCerradas = datosCached.mesasCerradas || [];
+
+                    if (document.getElementById('filtro-periodo').value === 'personalizado' && !document.getElementById('filtro-desde').value) {
+                        cambiarPeriodoRapido('semana_actual');
+                    } else {
+                        aplicarFiltrosClasificatoria();
+                    }
+                    calcularJugadorOnFire();
+                    verificarCumpleanosClub();
+                }
+            } catch (e) {
+                console.error("Error leyendo caché index general:", e);
+            }
+        }
+
+        try {
+            const { data: perfiles, error: errP } = await supabase.from('perfiles').select('*');
+            const { data: manos, error: errM } = await supabase.from('manos').select('*').eq('anulada', false);
+            const { data: mesas, error: errMesas } = await supabase.from('mesas').select('*');
+
+            if (!errP && !errM && !errMesas) {
+                const mesasMap = {};
+                (mesas || []).forEach(m => { mesasMap[m.id] = m; });
+
+                const manosConMesas = (manos || []).map(mano => ({
+                    ...mano,
+                    mesas: mesasMap[mano.mesa_id] || null
+                }));
+
+                const mesasCerradas = (mesas || []).filter(m => m.estado === 'cerrada').map(mesa => ({
+                    ...mesa,
+                    manos: (manos || []).filter(mano => mano.mesa_id === mesa.id && !mano.anulada)
+                }));
+
+                const nuevosDatos = { 
+                    perfiles: perfiles || [], 
+                    manos: manosConMesas, 
+                    mesasCerradas: mesasCerradas 
+                };
+
+                localStorage.setItem('cache_index_general_datos', JSON.stringify(nuevosDatos));
+
+                cachePerfiles = nuevosDatos.perfiles;
+                cacheManos = nuevosDatos.manos;
+                cacheMesasCerradas = nuevosDatos.mesasCerradas;
+
+                aplicarFiltrosClasificatoria();
+                calcularJugadorOnFire();
+                verificarCumpleanosClub();
+            }
+        } catch (err) {
+            console.error("Error actualizando datos de clasificación en segundo plano:", err);
+        }
+    }
+
+    function cambiarPeriodoRapido(tipo) {
+        const inputDesde = document.getElementById('filtro-desde');
+        const inputHasta = document.getElementById('filtro-hasta');
+
+        const ahora = new Date();
+
+        if (tipo === 'semana_actual') {
+            const diaSemana = ahora.getDay();
+            let diasDesdeJueves = (diaSemana >= 4) ? (diaSemana - 4) : (diaSemana + 3);
+            
+            const fechaInicio = new Date(ahora);
+            fechaInicio.setDate(ahora.getDate() - diasDesdeJueves);
+            
+            const fechaFin = new Date(fechaInicio);
+            fechaFin.setDate(fechaInicio.getDate() + 6);
+
+            inputDesde.value = fechaInicio.toISOString().split('T')[0];
+            inputHasta.value = fechaFin.toISOString().split('T')[0];
+        } else if (tipo === 'todo') {
+            inputDesde.value = '';
+            inputHasta.value = '';
+        }
+        
+        aplicarFiltrosClasificatoria();
+    }
+
+    function limpiarFiltrosClasificatoria() {
+        document.getElementById('filtro-desde').value = '';
+        document.getElementById('filtro-hasta').value = '';
+        document.getElementById('filtro-periodo').value = 'todo';
+        document.getElementById('filtro-min-partidas').value = '';
+        document.getElementById('filtro-tipo-jugador').value = 'miembros';
+        aplicarFiltrosClasificatoria();
+    }
+
+    function aplicarFiltrosClasificatoria() {
+        const tbody = document.getElementById('cuerpo-tabla-clasificatoria');
+        if (!tbody) return;
+
+        const valDesde = document.getElementById('filtro-desde').value;
+        const valHasta = document.getElementById('filtro-hasta').value;
+        const minPartidas = parseInt(document.getElementById('filtro-min-partidas').value) || 0;
+        const tipoJugador = document.getElementById('filtro-tipo-jugador').value;
+
+        let mesasFiltradas = cacheMesasCerradas;
+
+        if (valDesde) {
+            const fDesde = new Date(valDesde + 'T00:00:00');
+            mesasFiltradas = mesasFiltradas.filter(m => new Date(m.created_at) >= fDesde);
+        }
+
+        if (valHasta) {
+            const fHasta = new Date(valHasta + 'T23:59:59');
+            mesasFiltradas = mesasFiltradas.filter(m => new Date(m.created_at) <= fHasta);
+        }
+
+        let perfilesFiltrados = cachePerfiles;
+        if (tipoJugador === 'miembros') {
+            perfilesFiltrados = cachePerfiles.filter(p => (p.rol || '').toLowerCase() !== 'invitado');
+        } else if (tipoJugador === 'invitados') {
+            perfilesFiltrados = cachePerfiles.filter(p => (p.rol || '').toLowerCase() === 'invitado');
+        }
+
+        let stats = {};
+        perfilesFiltrados.forEach(p => {
+            const nombreMostrar = p.username ? p.username : (p.nombre_completo || 'Jugador');
+            stats[p.id] = { jugador: nombreMostrar, vic: 0, der: 0 };
+        });
+
+        mesasFiltradas.forEach(mesa => {
+            let totalP1 = 0;
+            let totalP2 = 0;
+
+            if (mesa.manos && mesa.manos.length > 0) {
+                mesa.manos.forEach(mano => {
+                    if (!mano.anulada) {
+                        totalP1 += (mano.puntos_pareja1 || 0);
+                        totalP2 += (mano.puntos_pareja2 || 0);
+                    }
+                });
+            }
+
+            let ganadoraMesa = 0;
+            if (totalP1 > totalP2) ganadoraMesa = 1;
+            else if (totalP2 > totalP1) ganadoraMesa = 2;
+
+            if (ganadoraMesa === 0) return;
+
+            const p1 = mesa.jugador1_id, p2 = mesa.jugador2_id, p3 = mesa.jugador3_id, p4 = mesa.jugador4_id;
+
+            if (ganadoraMesa === 1) {
+                if (stats[p1]) stats[p1].vic++;
+                if (stats[p3]) stats[p3].vic++;
+                if (stats[p2]) stats[p2].der++;
+                if (stats[p4]) stats[p4].der++;
+            } else if (ganadoraMesa === 2) {
+                if (stats[p2]) stats[p2].vic++;
+                if (stats[p4]) stats[p4].vic++;
+                if (stats[p1]) stats[p1].der++;
+                if (stats[p3]) stats[p3].der++;
+            }
+        });
+
+        let listaFinal = Object.values(stats).map(item => {
+            const total = item.vic + item.der;
+            const eficiencia = total > 0 ? (item.vic / total) * 100 : 0;
+            return { ...item, total, eficiencia };
+        });
+
+        if (minPartidas > 0) {
+            listaFinal = listaFinal.filter(item => item.total >= minPartidas);
+        }
+
+        listaFinal.sort((a, b) => b.eficiencia - a.eficiencia || b.vic - a.vic);
+
+        if (listaFinal.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 12px 0;">No hay registros de partidas completadas que coincidan con los filtros.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = '';
+        listaFinal.forEach((item, index) => {
+            const ef = item.eficiencia.toFixed(1);
+            const posicion = index + 1;
+            tbody.innerHTML += `
+                <tr>
+                    <td style="text-align: center; font-weight: bold; color: var(--cyan-title);">${posicion}°</td>
+                    <td style="font-weight: bold;">${item.jugador}</td>
+                    <td style="text-align: center; color: var(--accent-green); font-weight: bold;">${item.vic}</td>
+                    <td style="text-align: center; color: var(--accent-red);">${item.der}</td>
+                    <td style="text-align: center;">${item.total}</td>
+                    <td>
+                        <div class="progress-container">
+                            <div class="progress-bar-bg">
+                                <div class="progress-bar-fill" style="width: ${ef}%;"></div>
+                            </div>
+                            <span class="eficiencia-txt">${ef}%</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    async function cargarMesasActivas() {
+        const contenedor = document.getElementById('lista-mesas');
+
+        const cacheMesas = localStorage.getItem('cache_mesas_activas');
+        if (cacheMesas) {
+            try {
+                const mesasCached = JSON.parse(cacheMesas);
+                renderizarListaMesas(mesasCached, contenedor);
+            } catch (e) {
+                console.error("Error leyendo caché de mesas:", e);
+            }
+        }
+
+        const { data: mesas, error } = await supabase
+            .from('mesas')
+            .select(`
+                *,
+                j1:jugador1_id(*),
+                j2:jugador2_id(*),
+                j3:jugador3_id(*),
+                j4:jugador4_id(*),
+                manos(*)
+            `)
+            .eq('estado', 'abierta')
+            .order('created_at', { ascending: false });
+
+        if (error) return;
+
+        if (mesas) {
+            for (let i = 0; i < mesas.length; i++) {
+                const m = mesas[i];
+                let totalP1 = 0;
+                let totalP2 = 0;
+
+                if (m.manos && m.manos.length > 0) {
+                    m.manos.forEach(mano => {
+                        if (!mano.anulada) {
+                            totalP1 += (mano.puntos_pareja1 || 0);
+                            totalP2 += (mano.puntos_pareja2 || 0);
+                        }
+                    });
+                }
+
+                const limitePuntos = m.limite_puntos || 200;
+
+                if (totalP1 >= limitePuntos || totalP2 >= limitePuntos) {
+                    await supabase
+                        .from('mesas')
+                        .update({ estado: 'cerrada' })
+                        .eq('id', m.id);
+                }
+            }
+
+            const mesasActivasFinales = mesas.filter(m => {
+                let p1 = 0, p2 = 0;
+                if (m.manos) {
+                    m.manos.forEach(mano => {
+                        if (!mano.anulada) {
+                            p1 += (mano.puntos_pareja1 || 0);
+                            p2 += (mano.puntos_pareja2 || 0);
+                        }
+                    });
+                }
+                const limite = m.limite_puntos || 200;
+                return p1 < limite && p2 < limite;
+            });
+
+            localStorage.setItem('cache_mesas_activas', JSON.stringify(mesasActivasFinales));
+            renderizarListaMesas(mesasActivasFinales, contenedor);
+        }
+    }
+
+    function renderizarListaMesas(mesas, contenedor) {
+        if (!contenedor) return;
+
+        if (!mesas || mesas.length === 0) {
+            contenedor.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding: 12px 0;">No hay partidas activas en este momento.</p>';
+            return;
+        }
+
+        contenedor.innerHTML = '';
+        
+        mesas.forEach((m, i) => {
+            let totalP1 = 0;
+            let totalP2 = 0;
+            let rondas = 0;
+
+            if (m.manos && m.manos.length > 0) {
+                m.manos.forEach(mano => {
+                    if (!mano.anulada) {
+                        totalP1 += (mano.puntos_pareja1 || 0);
+                        totalP2 += (mano.puntos_pareja2 || 0);
+                        rondas++;
+                    }
+                });
+            }
+
+            const limitePuntos = m.limite_puntos || 200;
+            const mayorPuntaje = Math.max(totalP1, totalP2);
+            const progreso = Math.min(Math.round((mayorPuntaje / limitePuntos) * 100), 100);
+
+            const nomJ1 = m.j1?.username || m.j1?.nombre_completo || 'J1';
+            const nomJ2 = m.j2?.username || m.j2?.nombre_completo || 'J2';
+            const nomJ3 = m.j3?.username || m.j3?.nombre_completo || 'J3';
+            const nomJ4 = m.j4?.username || m.j4?.nombre_completo || 'J4';
+
+            contenedor.innerHTML += `
+            <div class="mesa-card-vivo">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <strong style="font-size: 0.95rem; color: var(--text);">🪑 Mesa #${i + 1}</strong>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Modalidad: ${limitePuntos} puntos</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 0.7rem; color: var(--text-muted);">Rondas</span>
+                        <div style="font-size: 1.1rem; font-weight: 800; color: var(--text);">${rondas}</div>
+                    </div>
+                </div>
+
+                <div class="marcador-grid">
+                    <div class="equipo-score-box team-a">
+                        <div style="font-size: 0.75rem; font-weight: bold; color: var(--cyan-title);">Equipo A</div>
+                        <div style="font-size: 0.85rem; font-weight: bold; margin-top: 2px; color: var(--text);">${nomJ1} & ${nomJ3}</div>
+                        <div class="score-a">${totalP1}</div>
+                    </div>
+                    <div class="equipo-score-box team-b">
+                        <div style="font-size: 0.75rem; font-weight: bold; color: var(--accent-red);">Equipo B</div>
+                        <div style="font-size: 0.85rem; font-weight: bold; margin-top: 2px; color: var(--text);">${nomJ2} & ${nomJ4}</div>
+                        <div class="score-b">${totalP2}</div>
+                    </div>
+                </div>
+
+                <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
+                        <span>Progreso</span>
+                        <span>${progreso}%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" style="width: ${progreso}%;"></div>
+                    </div>
+                </div>
+
+                <button class="btn" style="min-height: 42px; font-size: 0.9rem;" onclick="window.location.href='mesa.html?id=${m.id}'">Entrar a la Mesa</button>
+            </div>
+            `;
+        });
+    }
+</script>
+</body>
+</html>
