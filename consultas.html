@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centro de Consultas - Club Dominó y Romo</title>
+    
+    <script>
+        (function() {
+            try {
+                const savedTheme = localStorage.getItem('theme') || 'dark';
+                if (savedTheme === 'light') {
+                    document.documentElement.classList.add('light-mode');
+                }
+            } catch (e) {
+                console.error("Error al cargar el tema:", e);
+            }
+        })();
+
+        function cambiarTema() {
+            const html = document.documentElement;
+            html.classList.toggle('light-mode');
+            const currentTheme = html.classList.contains('light-mode') ? 'light' : 'dark';
+            try {
+                localStorage.setItem('theme', currentTheme);
+            } catch (e) {
+                console.warn('No se pudo guardar la preferencia de tema:', e);
+            }
+        }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="cache.js"></script>
+    <style>
+    :root {
+        --bg-color: #0b1120;
+        --card-bg: #152238;
+        --input-bg: #1e2d4a;
+        --border-color: #263859;
+        --accent-blue: #2563eb;
+        --accent-green: #10b981;
+        --accent-red: #ef4444;
+        --accent-amber: #f59e0b;
+        --text: #ffffff;
+        --text-muted: #8e9bb0;
+        --cyan-title: #38bdf8;
+    }
+
+    html.light-mode {
+        --bg-color: #f1f5f9;
+        --card-bg: #ffffff;
+        --input-bg: #e2e8f0;
+        --border-color: #cbd5e1;
+        --accent-blue: #2563eb;
+        --accent-green: #059669;
+        --accent-red: #dc2626;
+        --accent-amber: #d97706;
+        --text: #0f172a;
+        --text-muted: #64748b;
+        --cyan-title: #0284c7;
+    }
+
+    * { 
+        box-sizing: border-box; 
+        margin: 0; 
+        padding: 0; 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body { 
+        background-color: var(--bg-color); 
+        color: var(--text); 
+        padding: 16px 12px; 
+        display: flex; 
+        justify-content: center;
+        transition: background-color 0.3s, color 0.3s;
+    }
+
+    .container { 
+        width: 100%; 
+        max-width: 520px; 
+        display: flex; 
+        flex-direction: column; 
+        gap: 16px; 
+    } 
+    
+    header { 
+        text-align: center; 
+        padding: 8px 0 12px 0; 
+    }
+    header h1 { 
+        font-size: 1.8rem; 
+        font-weight: 900; 
+        color: var(--cyan-title); 
+    }
+    header p { 
+        color: var(--text-muted); 
+        font-size: 0.9rem; 
+        margin-top: 2px;
+    }
+
+    .card { 
+        background: var(--card-bg); 
+        border-radius: 16px; 
+        padding: 18px; 
+        border: 1px solid var(--border-color); 
+        transition: background-color 0.3s, border-color 0.3s;
+    }
+
+    .btn { 
+        width: 100%; 
+        min-height: 44px; 
+        padding: 10px; 
+        border: none; 
+        border-radius: 10px; 
+        font-weight: 800; 
+        cursor: pointer; 
+        background: var(--input-bg); 
+        color: var(--text); 
+        font-size: 0.95rem; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        gap: 8px;
+        text-decoration: none;
+        border: 1px solid var(--border-color);
+        transition: background-color 0.2s;
+    }
+
+    .btn:hover {
+        background-color: var(--border-color);
+    }
+
+    .nav-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .seccion-titulo {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1.1rem;
+        font-weight: 800;
+        margin-bottom: 4px;
+        color: var(--cyan-title);
+    }
+
+    .badges-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .badge-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--input-bg);
+        border: 1px solid var(--border-color);
+        padding: 6px 10px;
+        border-radius: 20px;
+        font-size: 0.78rem;
+        font-weight: 700;
+    }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Centro de Consultas</h1>
+            <p>Análisis avanzado, ELO, rangos y enfrentamientos</p>
+        </header>
+
+        <div class="nav-actions">
+            <a href="index.html" class="btn" style="flex: 1;">⬅️ Volver al Inicio</a>
+            <a href="galardones.html" class="btn" style="flex: 1;">🏆 Galardones</a>
+            <button type="button" class="btn" onclick="cambiarTema()" style="width: auto; padding: 0 16px;" title="Cambiar Tema">🌓</button>
+        </div>
+
+        <!-- 1. CONSULTA DE JUGADOR INDIVIDUAL -->
+        <div class="card">
+            <div class="seccion-titulo">
+                <span>👤</span>
+                <h3>Perfil y Galardones del Jugador</h3>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+                Selecciona un jugador para consultar sus métricas directamente desde las vistas de la base de datos.
+            </p>
+            <div style="margin-bottom: 12px;">
+                <select id="select-jugador-filtro" class="btn" style="text-align: left; padding: 10px; font-size: 0.9rem;" onchange="consultarPerfilJugador()">
+                    <option value="">Seleccionar jugador...</option>
+                </select>
+            </div>
+
+            <div id="resultado-perfil-jugador" style="display: none; flex-direction: column; gap: 14px; border-top: 1px solid var(--border-color); padding-top: 14px; margin-top: 12px;">
+                
+                <!-- Insignias y Condecoraciones -->
+                <div>
+                    <div style="font-size: 0.82rem; font-weight: bold; color: var(--accent-amber); margin-bottom: 4px;">🏅 Insignias y Condecoraciones</div>
+                    <div id="val-badges" class="badges-container"></div>
+                </div>
+
+                <!-- Cuadrícula Uniforme de Tarjetas Principales (2x2) -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+                    <!-- Tarjeta ELO -->
+                    <div style="background: var(--input-bg); padding: 10px; border-radius: 10px; border: 1px solid var(--border-color); text-align: center;">
+                        <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: bold;">Ranking ELO</div>
+                        <div id="val-elo" style="font-size: 1.2rem; font-weight: 900; color: var(--cyan-title); margin-top: 2px;">1200</div>
+                        <div id="val-rango-nombre" style="font-size: 0.75rem; font-weight: 700; margin-top: 3px; color: var(--accent-amber);">Intermedio</div>
+                    </div>
+                    <!-- Tarjeta Efectividad -->
+                    <div style="background: var(--input-bg); padding: 10px; border-radius: 10px; border: 1px solid var(--border-color); text-align: center;">
+                        <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: bold;">Efectividad General</div>
+                        <div id="val-efectividad-gral" style="font-size: 1.2rem; font-weight: 900; color: var(--accent-green); margin-top: 2px;">0%</div>
+                        <div id="val-efectividad-detalle" style="font-size: 0.75rem; font-weight: 700; margin-top: 3px; color: var(--text-muted);">(0 G - 0 P)</div>
+                    </div>
+                    <!-- Tarjeta Racha -->
+                    <div style="background: var(--input-bg); padding: 10px; border-radius: 10px; border: 1px solid var(--border-color); text-align: center;">
+                        <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: bold;">🔥 Racha Actual</div>
+                        <div id="val-racha-actual" style="font-size: 1.2rem; font-weight: 900; color: var(--accent-amber); margin-top: 2px;">0</div>
+                        <div id="val-racha-max" style="font-size: 0.75rem; font-weight: 700; margin-top: 3px; color: var(--text-muted);">Máx: 0</div>
+                    </div>
+                    <!-- Tarjeta Clutch -->
+                    <div style="background: var(--input-bg); padding: 10px; border-radius: 10px; border: 1px solid var(--border-color); text-align: center;">
+                        <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: bold;">⚡ Estado Clutch</div>
+                        <div id="val-clutch-status" style="font-size: 1.1rem; font-weight: 900; color: var(--cyan-title); margin-top: 2px;">Inactivo</div>
+                        <div id="val-clutch-detalle" style="font-size: 0.75rem; font-weight: 700; margin-top: 3px; color: var(--text-muted);">Rate: 0%</div>
+                    </div>
+                </div>
+
+                <!-- Tarjetas de Lisas -->
+                <div style="display: flex; gap: 8px;">
+                    <div style="background: var(--input-bg); padding: 10px; border-radius: 10px; flex: 1; border: 1px solid var(--border-color); text-align: center;">
+                        <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: bold;">Lisas a Favor</div>
+                        <div id="val-lisas-favor" style="font-size: 1.2rem; font-weight: 900; color: var(--accent-green); margin-top: 2px;">0</div>
+                    </div>
+                    <div style="background: var(--input-bg); padding: 10px; border-radius: 10px; flex: 1; border: 1px solid var(--border-color); text-align: center;">
+                        <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: bold;">Lisas en Contra</div>
+                        <div id="val-lisas-contra" style="font-size: 1.2rem; font-weight: 900; color: var(--accent-red); margin-top: 2px;">0</div>
+                    </div>
+                </div>
+
+                <!-- Mejores 3 Frentes -->
+                <div>
+                    <div style="font-size: 0.82rem; font-weight: bold; color: var(--cyan-title); margin-bottom: 6px;">🤝 Top 3 Mejores Frentes (Compañeros)</div>
+                    <div id="lista-mejores-frentes" style="display: flex; flex-direction: column; gap: 4px;"></div>
+                </div>
+
+                <!-- Rivales donde más pierde -->
+                <div>
+                    <div style="font-size: 0.82rem; font-weight: bold; color: var(--accent-red); margin-bottom: 6px;">⚠️ Top 3 Rivales Más Duros (Más Derrotas)</div>
+                    <div id="lista-peores-rivales" style="display: flex; flex-direction: column; gap: 4px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. ENFRENTAMIENTOS DIRECTOS (INDIVIDUAL: JUGADOR VS JUGADOR) -->
+        <div class="card">
+            <div class="seccion-titulo">
+                <span>⚔️</span>
+                <h3>Enfrentamientos Directos (Individual)</h3>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+                Compara el historial cara a cara entre dos jugadores como rivales directos.
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px;">
+                <div style="display: flex; gap: 8px;">
+                    <select id="h2h-ind-j1" class="btn" style="flex: 1; text-align: left; padding: 8px; font-size: 0.85rem;"><option value="">Jugador 1...</option></select>
+                    <select id="h2h-ind-j2" class="btn" style="flex: 1; text-align: left; padding: 8px; font-size: 0.85rem;"><option value="">Jugador 2...</option></select>
+                </div>
+                <button type="button" class="btn" onclick="calcularEnfrentamientoIndividual()" style="background: var(--accent-blue); color: white; border: none; cursor: pointer;">🔍 Consultar Cara a Cara</button>
+            </div>
+            <div id="resultado-enfrentamiento-individual" style="display: none; border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 12px;"></div>
+        </div>
+
+        <!-- 3. ENFRENTAMIENTOS DIRECTOS (PAREJA VS PAREJA) -->
+        <div class="card">
+            <div class="seccion-titulo">
+                <span>🛡️</span>
+                <h3>Enfrentamientos Directos (Parejas)</h3>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+                Compara el historial cara a cara entre dos parejas de jugadores.
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px;">
+                <div>
+                    <label style="font-size: 0.8rem; font-weight: bold; color: var(--cyan-title); display: block; margin-bottom: 4px;">Pareja 1</label>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="h2h-p1-j1" class="btn" style="flex: 1; text-align: left; padding: 8px; font-size: 0.85rem;"><option value="">Jugador 1...</option></select>
+                        <select id="h2h-p1-j2" class="btn" style="flex: 1; text-align: left; padding: 8px; font-size: 0.85rem;"><option value="">Jugador 2...</option></select>
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size: 0.8rem; font-weight: bold; color: var(--cyan-title); display: block; margin-bottom: 4px;">Pareja 2</label>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="h2h-p2-j1" class="btn" style="flex: 1; text-align: left; padding: 8px; font-size: 0.85rem;"><option value="">Jugador 1...</option></select>
+                        <select id="h2h-p2-j2" class="btn" style="flex: 1; text-align: left; padding: 8px; font-size: 0.85rem;"><option value="">Jugador 2...</option></select>
+                    </div>
+                </div>
+                <button type="button" class="btn" onclick="calcularEnfrentamientoDirecto()" style="background: var(--accent-blue); color: white; border: none; cursor: pointer;">🔍 Consultar Historial</button>
+            </div>
+            <div id="resultado-enfrentamiento" style="display: none; border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 12px;"></div>
+        </div>
+    </div>
+
+<script>
+    const SUPABASE_URL = 'https://kzbslfwupzwczmjqfjem.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6YnNsZnd1cHp3Y3ptanFmamVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDI1MzksImV4cCI6MjEwMjcxODUzOX0.qeeh2FV3zKRet-jRMVvJUwBm9jYHsLbWSYWIao574qc';
+
+    const db = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    window.addEventListener('DOMContentLoaded', async () => {
+        cargarConCache(
+            'cache_consultas_historicas',
+            async () => {
+                const { data: perfiles } = await db.from('perfiles').select('*');
+                const { data: manos } = await db.from('manos').select('*, mesas(*)').eq('anulada', false);
+                const { data: clutchViews } = await db.from('v_jugador_clutch').select('*');
+                const { data: rachasViews } = await db.from('rachas_jugadores').select('*');
+                if (!perfiles || !manos) throw new Error("Faltan datos base");
+                return { perfiles, manos, clutchViews: clutchViews || [], rachasViews: rachasViews || [] };
+            },
+            (datos) => {
+                window._perfilesGlobal = datos.perfiles;
+                window._manosGlobal = datos.manos;
+                window._clutchGlobal = datos.clutchViews;
+                window._rachasGlobal = datos.rachasViews;
+                inicializarSelectores(datos.perfiles, datos.manos);
+            }
+        );
+    });
+
+    function inicializarSelectores(perfiles, manos) {
+        const jugadoresIds = new Set(
+            perfiles
+                .filter(p => p.es_jugador === true || p.es_jugador === 1 || p.rol === 'jugador' || p.rol === 'admin' || p.rol === 'super_admin')
+                .map(p => p.id)
+        );
+
+        let jugadoresOrdenados = perfiles
+            .filter(p => jugadoresIds.has(p.id))
+            .sort((a, b) => (a.username || a.nombre_completo || '').localeCompare(b.username || b.nombre_completo || ''));
+
+        let selPerfil = document.getElementById('select-jugador-filtro');
+        selPerfil.innerHTML = '<option value="">Seleccionar jugador...</option>';
+        jugadoresOrdenados.forEach(p => {
+            let nombre = p.username || p.nombre_completo || 'Jugador';
+            let opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = nombre;
+            selPerfil.appendChild(opt);
+        });
+
+        ['h2h-p1-j1', 'h2h-p1-j2', 'h2h-p2-j1', 'h2h-p2-j2', 'h2h-ind-j1', 'h2h-ind-j2'].forEach(idSelect => {
+            let sel = document.getElementById(idSelect);
+            if (!sel) return;
+            sel.innerHTML = '<option value="">Jugador...</option>';
+            jugadoresOrdenados.forEach(p => {
+                let nombre = p.username || p.nombre_completo || 'Jugador';
+                let opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = nombre;
+                sel.appendChild(opt);
+            });
+        });
+    }
+
+    function obtenerPartidasAgrupadas() {
+        const manos = window._manosGlobal || [];
+        let mesasMap = {};
+
+        manos.forEach(m => {
+            let mesa = m.mesas;
+            if (!mesa) return;
+            let mesaId = mesa.id || mesa.mesa_id || m.mesa_id;
+            if (!mesaId) return;
+
+            if (!mesasMap[mesaId]) {
+                mesasMap[mesaId] = {
+                    mesaId: mesaId,
+                    jugadores: [mesa.jugador1_id, mesa.jugador3_id, mesa.jugador2_id, mesa.jugador4_id],
+                    t1: [mesa.jugador1_id, mesa.jugador3_id].filter(id => id != null),
+                    t2: [mesa.jugador2_id, mesa.jugador4_id].filter(id => id != null),
+                    pts1: 0,
+                    pts2: 0
+                };
+            }
+            mesasMap[mesaId].pts1 += (m.puntos_pareja1 || 0);
+            mesasMap[mesaId].pts2 += (m.puntos_pareja2 || 0);
+        });
+
+        let partidas = [];
+        for (let id in mesasMap) {
+            let item = mesasMap[id];
+            if (item.t1.length !== 2 || item.t2.length !== 2) continue;
+
+            let ganoTeam1 = item.pts1 > item.pts2;
+            let ganoTeam2 = item.pts2 > item.pts1;
+
+            partidas.push({
+                mesaId: item.mesaId,
+                t1: item.t1,
+                t2: item.t2,
+                pts1: item.pts1,
+                pts2: item.pts2,
+                ganador: ganoTeam1 ? 1 : (ganoTeam2 ? 2 : 0),
+                esLisa: (item.pts1 === 0 || item.pts2 === 0)
+            });
+        }
+        return partidas;
+    }
+
+    function obtenerRangoElo(elo) {
+        if (elo < 1000) return { nombre: 'Novato', color: '#ef4444' };
+        if (elo <= 1199) return { nombre: 'Aficionado', color: '#f97316' };
+        if (elo <= 1399) return { nombre: 'Intermedio', color: '#eab308' };
+        if (elo <= 1599) return { nombre: 'Avanzado', color: '#84cc16' };
+        if (elo <= 1799) return { nombre: 'Experto', color: '#10b981' };
+        return { nombre: 'Maestro', color: '#059669' };
+    }
+
+    function consultarPerfilJugador() {
+        const jugadorId = document.getElementById('select-jugador-filtro').value;
+        const contenedor = document.getElementById('resultado-perfil-jugador');
+
+        if (!jugadorId) {
+            contenedor.style.display = 'none';
+            return;
+        }
+
+        const perfiles = window._perfilesGlobal || [];
+        const perfilJugador = perfiles.find(p => p.id === jugadorId);
+        const nombreJugador = perfilJugador ? (perfilJugador.username || perfilJugador.nombre_completo) : '';
+        const partidas = obtenerPartidasAgrupadas();
+
+        let totalPartidas = 0;
+        let victorias = 0;
+        let derrotas = 0;
+        let lisasFavor = 0;
+        let lisasContra = 0;
+        let frentesMap = {}; 
+        let rivalesMap = {}; 
+
+        partidas.forEach(p => {
+            let enT1 = p.t1.includes(jugadorId);
+            let enT2 = p.t2.includes(jugadorId);
+
+            if (!enT1 && !enT2) return;
+
+            let equipoPropio = enT1 ? p.t1 : p.t2;
+            let equipoRival = enT1 ? p.t2 : p.t1;
+            let misPuntos = enT1 ? p.pts1 : p.pts2;
+            let puntosRival = enT1 ? p.pts2 : p.pts1;
+
+            let ganoYo = (enT1 && p.ganador === 1) || (enT2 && p.ganador === 2);
+            let perdioYo = (enT1 && p.ganador === 2) || (enT2 && p.ganador === 1);
+
+            totalPartidas++;
+            if (ganoYo) {
+                victorias++;
+            } else if (perdioYo) {
+                derrotas++;
+            }
+
+            if (p.esLisa) {
+                if (ganoYo && puntosRival === 0) lisasFavor++;
+                if (perdioYo && misPuntos === 0) lisasContra++;
+            }
+
+            let companeroId = equipoPropio.find(id => id !== jugadorId);
+            if (companeroId) {
+                if (!frentesMap[companeroId]) frentesMap[companeroId] = { vic: 0, der: 0, total: 0 };
+                frentesMap[companeroId].total++;
+                if (ganoYo) frentesMap[companeroId].vic++;
+                else if (perdioYo) frentesMap[companeroId].der++;
+            }
+
+            equipoRival.forEach(rivalId => {
+                if (perdioYo) {
+                    rivalesMap[rivalId] = (rivalesMap[rivalId] || 0) + 1;
+                }
+            });
+        });
+
+        const clutchInfo = (window._clutchGlobal || []).find(c => c.jugador === jugadorId || c.jugador === nombreJugador);
+        const rachaInfo = (window._rachasGlobal || []).find(r => r.jugador_id === jugadorId || r.jugador === jugadorId || r.jugador === nombreJugador);
+
+        let rachaActual = rachaInfo ? (rachaInfo.racha_actual || rachaInfo.racha || 0) : 0;
+        let maxRacha = rachaInfo ? (rachaInfo.racha_maxima || rachaInfo.max_racha || 0) : 0;
+
+        let clutchRate = clutchInfo ? (clutchInfo.clutch_rate || 0) : 0;
+        let partidasClutchGanadas = clutchInfo ? (clutchInfo.partidas_clutch_ganadas || 0) : 0;
+        let esClutch = clutchRate > 0 || partidasClutchGanadas > 0;
+
+        let eloOficial = (perfilJugador && perfilJugador.elo !== undefined && perfilJugador.elo !== null) 
+            ? perfilJugador.elo 
+            : 1200;
+
+        document.getElementById('val-elo').textContent = eloOficial;
+
+        let rangoInfo = obtenerRangoElo(eloOficial);
+        let spanRango = document.getElementById('val-rango-nombre');
+        spanRango.textContent = rangoInfo.nombre;
+        spanRango.style.color = rangoInfo.color;
+
+        let porcentajeGral = totalPartidas > 0 ? ((victorias / totalPartidas) * 100).toFixed(1) : 0;
+        document.getElementById('val-efectividad-gral').textContent = `${porcentajeGral}%`;
+        document.getElementById('val-efectividad-detalle').textContent = `(${victorias} G - ${derrotas} P)`;
+
+        document.getElementById('val-racha-actual').textContent = rachaActual;
+        document.getElementById('val-racha-max').textContent = `Máx: ${maxRacha}`;
+
+        let spanClutchStatus = document.getElementById('val-clutch-status');
+        let spanClutchDetalle = document.getElementById('val-clutch-detalle');
+        if (esClutch) {
+            spanClutchStatus.textContent = '¡Activo! ⚡';
+            spanClutchStatus.style.color = 'var(--cyan-title)';
+            spanClutchDetalle.textContent = `Rate: ${clutchRate}% (${partidasClutchGanadas} G)`;
+        } else {
+            spanClutchStatus.textContent = 'Inactivo';
+            spanClutchStatus.style.color = 'var(--text-muted)';
+            spanClutchDetalle.textContent = 'Rate: 0%';
+        }
+
+        document.getElementById('val-lisas-favor').textContent = lisasFavor;
+        document.getElementById('val-lisas-contra').textContent = lisasContra;
+
+        let badgesHtml = '';
+
+        if (totalPartidas >= 30 && parseFloat(porcentajeGral) >= 55) {
+            badgesHtml += `<div class="badge-item" style="color: var(--accent-amber);">👑 Veterano Destacado</div>`;
+        }
+
+        if (rachaActual >= 6 || maxRacha >= 6) {
+            badgesHtml += `<div class="badge-item" style="color: var(--accent-green);">🔥 En Racha (${Math.max(rachaActual, maxRacha)})</div>`;
+        }
+
+        if (esClutch) {
+            badgesHtml += `<div class="badge-item" style="color: var(--cyan-title);">⚡ Jugador Clutch (${clutchRate}%)</div>`;
+        }
+
+        let totalLisas = lisasFavor + lisasContra;
+        let porcentajeLisas = totalLisas > 0 ? (lisasFavor / totalLisas) * 100 : 0;
+        if (totalLisas > 0 && porcentajeLisas >= 60) {
+            badgesHtml += `<div class="badge-item" style="color: var(--accent-purple);">🎯 Artillero de Lisas (${porcentajeLisas.toFixed(0)}%)</div>`;
+        }
+
+        if (badgesHtml === '') {
+            badgesHtml = `<span style="font-size: 0.8rem; color: var(--text-muted);">Sin insignias especiales desbloqueadas aún.</span>`;
+        }
+        document.getElementById('val-badges').innerHTML = badgesHtml;
+
+        let arrayFrentes = Object.keys(frentesMap).map(id => {
+            let p = perfiles.find(item => item.id === id);
+            let nombre = p ? (p.username || p.nombre_completo) : 'Jugador';
+            let st = frentesMap[id];
+            let efectividad = st.total > 0 ? (st.vic / st.total) * 100 : 0;
+            return { nombre, efectividad, vic: st.vic, total: st.total };
+        }).sort((a, b) => b.efectividad - a.efectividad || b.vic - a.vic).slice(0, 3);
+
+        let divFrentes = document.getElementById('lista-mejores-frentes');
+        divFrentes.innerHTML = arrayFrentes.length === 0 ? `<span style="font-size: 0.8rem; color: var(--text-muted);">Sin datos suficientes.</span>` :
+            arrayFrentes.map((f, idx) => `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 6px 10px; border-radius: 8px; font-size: 0.82rem;">
+                    <span>${idx + 1}. <strong>${f.nombre}</strong></span>
+                    <span style="color: var(--accent-green); font-weight: bold;">${f.efectividad.toFixed(1)}% (${f.vic}/${f.total})</span>
+                </div>
+            `).join('');
+
+        let arrayRivales = Object.keys(rivalesMap).map(id => {
+            let p = perfiles.find(item => item.id === id);
+            let nombre = p ? (p.username || p.nombre_completo) : 'Jugador';
+            return { nombre, derrotas: rivalesMap[id] };
+        }).sort((a, b) => b.derrotas - a.derrotas).slice(0, 3);
+
+        let divRivales = document.getElementById('lista-peores-rivales');
+        divRivales.innerHTML = arrayRivales.length === 0 ? `<span style="font-size: 0.8rem; color: var(--text-muted);">Sin derrotas registradas.</span>` :
+            arrayRivales.map((r, idx) => `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 6px 10px; border-radius: 8px; font-size: 0.82rem;">
+                    <span>${idx + 1}. <strong>${r.nombre}</strong></span>
+                    <span style="color: var(--accent-red); font-weight: bold;">${r.derrotas} derrotas</span>
+                </div>
+            `).join('');
+
+        contenedor.style.display = 'flex';
+    }
+
+    function calcularEnfrentamientoIndividual() {
+        const j1 = document.getElementById('h2h-ind-j1').value;
+        const j2 = document.getElementById('h2h-ind-j2').value;
+        const contenedorRes = document.getElementById('resultado-enfrentamiento-individual');
+
+        if (!j1 || !j2) {
+            alert("Por favor selecciona ambos jugadores.");
+            return;
+        }
+
+        if (j1 === j2) {
+            alert("No puedes comparar un jugador contra sí mismo.");
+            return;
+        }
+
+        const perfiles = window._perfilesGlobal || [];
+        const partidas = obtenerPartidasAgrupadas();
+
+        let vicJ1 = 0;
+        let vicJ2 = 0;
+        let totalPartidasH2H = 0;
+
+        partidas.forEach(p => {
+            let j1EnT1 = p.t1.includes(j1);
+            let j1EnT2 = p.t2.includes(j1);
+            let j2EnT1 = p.t1.includes(j2);
+            let j2EnT2 = p.t2.includes(j2);
+
+            let j1EsOpuestoAJ2 = (j1EnT1 && j2EnT2) || (j1EnT2 && j2EnT1);
+
+            if (j1EsOpuestoAJ2) {
+                totalPartidasH2H++;
+                let j1Gano = (j1EnT1 && p.ganador === 1) || (j1EnT2 && p.ganador === 2);
+                let j2Gano = (j2EnT1 && p.ganador === 1) || (j2EnT2 && p.ganador === 2);
+
+                if (j1Gano) vicJ1++;
+                else if (j2Gano) vicJ2++;
+            }
+        });
+
+        const getNombre = (id) => {
+            let p = perfiles.find(item => item.id === id);
+            return p ? (p.username || p.nombre_completo) : 'Jugador';
+        };
+
+        let nombreJ1 = getNombre(j1);
+        let nombreJ2 = getNombre(j2);
+
+        contenedorRes.style.display = 'block';
+
+        if (totalPartidasH2H === 0) {
+            contenedorRes.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">No se registran enfrentamientos directos como rivales entre ambos jugadores.</div>`;
+            return;
+        }
+
+        let ef1 = (vicJ1 / totalPartidasH2H) * 100;
+        let ef2 = (vicJ2 / totalPartidasH2H) * 100;
+
+        contenedorRes.innerHTML = `
+            <div style="font-size: 0.85rem; text-align: center;">
+                <div style="color: var(--cyan-title); font-weight: bold; margin-bottom: 6px;">Total de partidas enfrentados: ${totalPartidasH2H}</div>
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                    <div style="background: var(--input-bg); padding: 10px; border-radius: 10px; flex: 1; border: 1px solid var(--border-color);">
+                        <div style="font-weight: bold; font-size: 0.78rem; color: var(--text-muted);">Jugador 1</div>
+                        <div style="font-weight: bold; font-size: 0.82rem; margin: 2px 0;">${nombreJ1}</div>
+                        <div style="color: var(--accent-green); font-weight: 900; font-size: 1rem;">${vicJ1} V (${ef1.toFixed(1)}%)</div>
+                    </div>
+                    <div style="background: var(--input-bg); padding: 10px; border-radius: 10px; flex: 1; border: 1px solid var(--border-color);">
+                        <div style="font-weight: bold; font-size: 0.78rem; color: var(--text-muted);">Jugador 2</div>
+                        <div style="font-weight: bold; font-size: 0.82rem; margin: 2px 0;">${nombreJ2}</div>
+                        <div style="color: var(--accent-green); font-weight: 900; font-size: 1rem;">${vicJ2} V (${ef2.toFixed(1)}%)</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function calcularEnfrentamientoDirecto() {
+        const p1j1 = document.getElementById('h2h-p1-j1').value;
+        const p1j2 = document.getElementById('h2h-p1-j2').value;
+        const p2j1 = document.getElementById('h2h-p2-j1').value;
+        const p2j2 = document.getElementById('h2h-p2-j2').value;
+        const contenedorRes = document.getElementById('resultado-enfrentamiento');
+
+        if (!p1j1 || !p1j2 || !p2j1 || !p2j2) {
+            alert("Por favor selecciona los 4 jugadores.");
+            return;
+        }
+
+        const unicos = new Set([p1j1, p1j2, p2j1, p2j2]);
+        if (unicos.size < 4) {
+            alert("No puedes repetir jugadores en el enfrentamiento.");
+            return;
+        }
+
+        const par1Key = [p1j1, p1j2].sort().join('_');
+        const par2Key = [p2j1, p2j2].sort().join('_');
+
+        if (par1Key === par2Key) {
+            alert("Las parejas no pueden ser idénticas.");
+            return;
+        }
+
+        const perfiles = window._perfilesGlobal || [];
+        const partidas = obtenerPartidasAgrupadas();
+
+        let vicPar1 = 0;
+        let vicPar2 = 0;
+        let totalPartidasH2H = 0;
+
+        partidas.forEach(p => {
+            let t1Key = [...p.t1].sort().join('_');
+            let t2Key = [...p.t2].sort().join('_');
+
+            let esMatch = false;
+            let pareja1EsTeam1 = false;
+
+            if (t1Key === par1Key && t2Key === par2Key) {
+                esMatch = true;
+                pareja1EsTeam1 = true;
+            } else if (t1Key === par2Key && t2Key === par1Key) {
+                esMatch = true;
+                pareja1EsTeam1 = false;
+            }
+
+            if (esMatch) {
+                totalPartidasH2H++;
+                let ganoPareja1 = (pareja1EsTeam1 && p.ganador === 1) || (!pareja1EsTeam1 && p.ganador === 2);
+                let ganoPareja2 = (pareja1EsTeam1 && p.ganador === 2) || (!pareja1EsTeam1 && p.ganador === 1);
+
+                if (ganoPareja1) vicPar1++;
+                else if (ganoPareja2) vicPar2++;
+            }
+        });
+
+        const getNombre = (id) => {
+            let p = perfiles.find(item => item.id === id);
+            return p ? (p.username || p.nombre_completo) : 'Jugador';
+        };
+
+        let nombreP1 = `${getNombre(p1j1)} & ${getNombre(p1j2)}`;
+        let nombreP2 = `${getNombre(p2j1)} & ${getNombre(p2j2)}`;
+
+        contenedorRes.style.display = 'block';
+
+        if (totalPartidasH2H === 0) {
+            contenedorRes.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">No se registran enfrentamientos directos entre ambas parejas.</div>`;
+            return;
+        }
+
+        let ef1 = (vicPar1 / totalPartidasH2H) * 100;
+        let ef2 = (vicPar2 / totalPartidasH2H) * 100;
+
+        contenedorRes.innerHTML = `
+            <div style="font-size: 0.85rem; text-align: center;">
+                <div style="color: var(--cyan-title); font-weight: bold; margin-bottom: 6px;">Total de partidas jugadas: ${totalPartidasH2H}</div>
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                    <div style="background: var(--input-bg); padding: 10px; border-radius: 10px; flex: 1; border: 1px solid var(--border-color);">
+                        <div style="font-weight: bold; font-size: 0.78rem; color: var(--text-muted);">Pareja 1</div>
+                        <div style="font-weight: bold; font-size: 0.82rem; margin: 2px 0;">${nombreP1}</div>
+                        <div style="color: var(--accent-green); font-weight: 900; font-size: 1rem;">${vicPar1} V (${ef1.toFixed(1)}%)</div>
+                    </div>
+                    <div style="background: var(--input-bg); padding: 10px; border-radius: 10px; flex: 1; border: 1px solid var(--border-color);">
+                        <div style="font-weight: bold; font-size: 0.78rem; color: var(--text-muted);">Pareja 2</div>
+                        <div style="font-weight: bold; font-size: 0.82rem; margin: 2px 0;">${nombreP2}</div>
+                        <div style="color: var(--accent-green); font-weight: 900; font-size: 1rem;">${vicPar2} V (${ef2.toFixed(1)}%)</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+</script>
+</body>
+</html>
