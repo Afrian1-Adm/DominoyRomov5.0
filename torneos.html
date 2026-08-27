@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Club Dominó y Romo — Torneos</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="cache.js"></script>
+<style>
+:root{
+ --bg:#0b1120;--card:#152238;--sub:#0d1726;--input:#1e2d4a;--border:#263859;
+ --text:#fff;--muted:#8e9bb0;--blue:#2563eb;--green:#10b981;--red:#ef4444;--amber:#f59e0b;--cyan:#38bdf8;
+}
+html.light-mode{--bg:#f1f5f9;--card:#fff;--sub:#f8fafc;--input:#f8fafc;--border:#cbd5e1;--text:#0f172a;--muted:#64748b;--cyan:#0284c7}
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{background:var(--bg);color:var(--text);padding:16px 12px}
+.container{max-width:760px;margin:auto;display:flex;flex-direction:column;gap:14px}
+header{text-align:center;padding:6px 0}
+header img{width:130px}
+h1{font-size:1.8rem;color:var(--cyan);font-weight:900}
+.subtitle{color:var(--muted);font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.btn{border:0;border-radius:10px;padding:11px 14px;font-weight:800;cursor:pointer;background:var(--blue);color:#fff}
+.btn.secondary{background:var(--input);color:var(--text);border:1px solid var(--border)}
+.btn.green{background:var(--green)}
+.btn.red{background:var(--red)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{font-size:.78rem;color:var(--muted);font-weight:700;display:block;margin-bottom:4px}
+input,select,textarea{width:100%;padding:11px;border-radius:10px;border:1px solid var(--border);background:var(--input);color:var(--text)}
+textarea{resize:vertical;min-height:90px}
+.form{display:flex;flex-direction:column;gap:10px}
+.torneo{border:1px solid var(--border);background:var(--sub);border-radius:12px;padding:13px;margin-top:10px}
+.badge{padding:4px 8px;border-radius:999px;font-size:.7rem;font-weight:800}
+.borrador{background:#334155;color:#e2e8f0}.inscripciones{background:#164e63;color:#a5f3fc}
+.en_curso{background:#065f46;color:#6ee7b7}.finalizado{background:#3f3f46;color:#d4d4d8}
+.cancelado{background:#7f1d1d;color:#fecaca}
+.hidden{display:none!important}
+.mode-card{border:1px solid var(--border);background:var(--sub);border-radius:12px;padding:12px;cursor:pointer}
+.mode-card.active{outline:2px solid var(--blue)}
+.small{font-size:.78rem;color:var(--muted)}
+.empty{text-align:center;color:var(--muted);padding:18px 8px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+</style>
+<script>
+(function(){
+ const theme=localStorage.getItem('theme')||'dark';
+ if(theme==='light') document.documentElement.classList.add('light-mode');
+})();
+</script>
+</head>
+<body>
+<div class="container">
+<header>
+ <img src="logo.png" alt="Logo">
+ <h1>🏆 Torneos</h1>
+ <div class="subtitle">Competencias del Club Dominó y Romo</div>
+</header>
+
+<div class="row">
+ <button class="btn secondary" onclick="window.location.href='lobby.html'">← Volver al Lobby</button>
+ <button class="btn secondary" onclick="cargarTorneos(true)">🔄 Actualizar</button>
+</div>
+
+<div id="estadoSesion" class="card"></div>
+
+<div id="adminCard" class="card hidden">
+ <div class="row" style="margin-bottom:12px">
+  <h2 style="font-size:1.05rem">➕ Crear torneo</h2>
+  <span class="small">Solo administración</span>
+ </div>
+
+ <form id="formTorneo" class="form">
+  <div class="grid">
+   <div>
+    <label>Nombre del torneo</label>
+    <input id="torneoNombre" required placeholder="Ej. Torneo Jueves">
+   </div>
+   <div>
+    <label>Límite de puntos</label>
+    <input id="torneoLimite" type="number" min="50" step="50" value="200" required>
+   </div>
+  </div>
+
+  <div>
+   <label>Modalidad</label>
+   <div class="grid">
+    <div class="mode-card active" data-mode="parejas" onclick="seleccionarModalidad(this)">
+     <strong>👫 Por Parejas</strong>
+     <div class="small">Parejas fijas y eliminatorias.</div>
+    </div>
+    <div class="mode-card" data-mode="equipo_ab" onclick="seleccionarModalidad(this)">
+     <strong>🔵🔴 Equipo A vs B</strong>
+     <div class="small">Dos equipos con enfrentamientos.</div>
+    </div>
+    <div class="mode-card" data-mode="rotando_frente" onclick="seleccionarModalidad(this)">
+     <strong>🔄 Rotando Frente</strong>
+     <div class="small">Parejas cambian entre rondas.</div>
+    </div>
+    <div class="mode-card" data-mode="muerte_subita" onclick="seleccionarModalidad(this)">
+     <strong>☠️ Muerte Súbita</strong>
+     <div class="small">Eliminación hasta la final.</div>
+    </div>
+   </div>
+   <input type="hidden" id="torneoModalidad" value="parejas">
+  </div>
+
+  <div class="grid">
+   <div>
+    <label>Fecha / hora de inicio</label>
+    <input id="torneoFecha" type="datetime-local">
+   </div>
+   <div>
+    <label>Estado inicial</label>
+    <select id="torneoEstado">
+     <option value="borrador">Borrador</option>
+     <option value="inscripciones">Inscripciones abiertas</option>
+    </select>
+   </div>
+  </div>
+
+  <div>
+   <label>Descripción</label>
+   <textarea id="torneoDescripcion" placeholder="Reglas, premios, sede, etc."></textarea>
+  </div>
+
+  <button class="btn green" type="submit">Crear Torneo</button>
+ </form>
+</div>
+
+<div class="card">
+ <div class="row">
+  <h2 style="font-size:1.05rem">📋 Torneos</h2>
+  <span id="contador" class="small"></span>
+ </div>
+ <div id="listaTorneos"></div>
+</div>
+</div>
+
+<script>
+const SUPABASE_URL='https://kzbslfwupzwczmjqfjem.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6YnNsZnd1cHp3Y3ptanFmamVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDI1MzksImV4cCI6MjEwMjcxODUzOX0.qeeh2FV3zKRet-jRMVvJUwBm9jYHsLbWSYWIao574qc'; // placeholder
+
+let supabase = window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+let usuarioActual=null;
+let perfilUsuario=null;
+let modalidadSeleccionada='parejas';
+
+function seleccionarModalidad(el){
+ document.querySelectorAll('.mode-card').forEach(x=>x.classList.remove('active'));
+ el.classList.add('active');
+ modalidadSeleccionada=el.dataset.mode;
+ document.getElementById('torneoModalidad').value=modalidadSeleccionada;
+}
+
+function mostrarSesion(nombre,rol,admin){
+ document.getElementById('estadoSesion').innerHTML = `
+  <div class="row">
+   <div>
+    <strong>👤 ${nombre}</strong>
+    <div class="small">Rol: ${rol||'jugador'}</div>
+   </div>
+   <span class="badge ${admin?'en_curso':'inscripciones'}">${admin?'ADMINISTRADOR':'JUGADOR'}</span>
+  </div>`;
+ document.getElementById('adminCard').classList.toggle('hidden',!admin);
+}
+
+async function inicializar(){
+ const {data:{session}}=await supabase.auth.getSession();
+ if(!session){
+   document.getElementById('estadoSesion').innerHTML='<div class="empty">Debes iniciar sesión para gestionar o inscribirte en torneos.</div>';
+   await cargarTorneos(false);
+   return;
+ }
+ usuarioActual=session.user;
+ const {data:perfil}=await supabase.from('perfiles').select('id,username,nombre_completo,rol').eq('auth_user_id',session.user.id).single();
+ perfilUsuario=perfil||null;
+ const rol=(perfil?.rol||'jugador').toUpperCase();
+ const admin=['ADMIN','ADMINISTRADOR','SUPERADMIN','SUPER_ADMIN','SUPERUSER','SUPERUSUARIO'].includes(rol);
+ mostrarSesion(perfil?.username||perfil?.nombre_completo||session.user.email,rol,admin);
+ await cargarTorneos(false);
+}
+
+function modalidadTexto(m){
+ return {
+   parejas:'👫 Por Parejas',
+   equipo_ab:'🔵🔴 Equipo A vs B',
+   rotando_frente:'🔄 Rotando Frente',
+   muerte_subita:'☠️ Muerte Súbita'
+ }[m]||m;
+}
+
+function estadoTexto(e){
+ return {
+   borrador:'Borrador',
+   inscripciones:'Inscripciones',
+   en_curso:'En curso',
+   finalizado:'Finalizado',
+   cancelado:'Cancelado'
+ }[e]||e;
+}
+
+async function cargarTorneos(force=false){
+ const cont=document.getElementById('listaTorneos');
+ cont.innerHTML='<div class="empty">Cargando torneos...</div>';
+ let query=supabase.from('torneos').select('*').order('fecha_inicio',{ascending:true,nullsFirst:false});
+ const {data,error}=await query;
+ if(error){
+   console.error(error);
+   cont.innerHTML='<div class="empty">No se pudieron cargar los torneos.</div>';
+   return;
+ }
+ document.getElementById('contador').textContent=`${(data||[]).length} registro(s)`;
+ if(!data||data.length===0){
+   cont.innerHTML='<div class="empty">Todavía no hay torneos creados.</div>';
+   return;
+ }
+ cont.innerHTML=data.map(t=>`
+   <div class="torneo">
+    <div class="row">
+      <div>
+       <strong>${escapeHtml(t.nombre)}</strong>
+       <div class="small">${modalidadTexto(t.modalidad)} · ${t.limite_puntos} puntos</div>
+      </div>
+      <span class="badge ${t.estado}">${estadoTexto(t.estado)}</span>
+    </div>
+    ${t.fecha_inicio?`<div class="small" style="margin-top:6px">📅 ${new Date(t.fecha_inicio).toLocaleString('es-DO')}</div>`:''}
+    ${t.descripcion?`<div style="margin-top:8px;font-size:.84rem">${escapeHtml(t.descripcion)}</div>`:''}
+    <div style="margin-top:10px">
+      <button class="btn secondary" onclick="verTorneo('${t.id}')">Ver torneo</button>
+    </div>
+   </div>`).join('');
+}
+
+function escapeHtml(v){
+ return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+}
+
+function verTorneo(id){
+ window.location.href='torneos.html?torneo='+encodeURIComponent(id);
+}
+
+document.getElementById('formTorneo').addEventListener('submit',async e=>{
+ e.preventDefault();
+ const nombre=document.getElementById('torneoNombre').value.trim();
+ const limite=parseInt(document.getElementById('torneoLimite').value)||200;
+ const descripcion=document.getElementById('torneoDescripcion').value.trim();
+ const estado=document.getElementById('torneoEstado').value;
+ const fechaValue=document.getElementById('torneoFecha').value;
+ const fecha=fechaValue?new Date(fechaValue).toISOString():null;
+
+ const {data,error}=await supabase.from('torneos').insert([{
+   nombre,
+   modalidad:modalidadSeleccionada,
+   descripcion:descripcion||null,
+   limite_puntos:limite,
+   fecha_inicio:fecha,
+   estado,
+   creado_por:perfilUsuario?.id||null
+ }]).select().single();
+
+ if(error){
+   alert('No se pudo crear el torneo: '+error.message);
+   console.error(error);
+   return;
+ }
+ alert('Torneo creado correctamente.');
+ e.target.reset();
+ document.getElementById('torneoLimite').value=200;
+ document.getElementById('torneoEstado').value='borrador';
+ document.querySelector('.mode-card[data-mode="parejas"]').click();
+ await cargarTorneos(true);
+});
+
+supabase.channel('torneos_live')
+ .on('postgres_changes',{event:'*',schema:'public',table:'torneos'},()=>cargarTorneos(true))
+ .subscribe();
+
+window.addEventListener('DOMContentLoaded',inicializar);
+
+</script>
+</body>
+</html>
