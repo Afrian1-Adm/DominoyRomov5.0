@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Club Dominó y Romo — Torneos</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="cache.js"></script>
+<style>
+:root{--bg:#0b1120;--card:#152238;--sub:#0d1726;--input:#1e2d4a;--border:#263859;--text:#fff;--muted:#8e9bb0;--blue:#2563eb;--green:#10b981;--red:#ef4444;--amber:#f59e0b;--cyan:#38bdf8}
+html.light-mode{--bg:#f1f5f9;--card:#fff;--sub:#f8fafc;--input:#f8fafc;--border:#cbd5e1;--text:#0f172a;--muted:#64748b;--cyan:#0284c7}
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{background:var(--bg);color:var(--text);padding:16px 12px}
+.container{max-width:900px;margin:auto;display:flex;flex-direction:column;gap:14px}
+header{text-align:center;padding:4px 0} header img{width:130px} h1{font-size:1.8rem;color:var(--cyan);font-weight:900} .subtitle{color:var(--muted);font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px} .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.form{display:flex;flex-direction:column;gap:10px} label{font-size:.78rem;color:var(--muted);font-weight:700;display:block;margin-bottom:4px}
+input,select,textarea{width:100%;padding:11px;border-radius:10px;border:1px solid var(--border);background:var(--input);color:var(--text)} textarea{min-height:80px}
+.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer;background:var(--blue);color:#fff} .btn.secondary{background:var(--input);color:var(--text);border:1px solid var(--border)} .btn.green{background:var(--green)} .btn.red{background:var(--red)} .btn.amber{background:var(--amber);color:#111}
+.small{font-size:.78rem;color:var(--muted)} .muted{color:var(--muted)} .hidden{display:none!important}
+.badge{padding:4px 8px;border-radius:999px;font-size:.7rem;font-weight:800;white-space:nowrap}
+.borrador{background:#334155;color:#e2e8f0} .inscripciones{background:#164e63;color:#a5f3fc} .en_curso{background:#065f46;color:#6ee7b7} .finalizado{background:#3f3f46;color:#d4d4d8} .cancelado{background:#7f1d1d;color:#fecaca}
+.torneo-item,.match{background:var(--sub);border:1px solid var(--border);border-radius:12px;padding:13px;margin-top:9px}
+.match-grid{display:grid;grid-template-columns:1fr 80px 1fr;gap:10px;align-items:center}
+.team{border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--card)} .team.win{border-color:#10b981;box-shadow:0 0 0 1px #10b981 inset}
+.vs{text-align:center;font-weight:900;color:var(--muted)} .players{font-size:.8rem;line-height:1.45;margin-top:4px}
+.bracket{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px} .round{min-width:250px;flex:1} .round h3{font-size:.9rem;color:var(--cyan);margin-bottom:6px}
+.notice{padding:10px 12px;border-radius:10px;background:var(--sub);border:1px solid var(--border);font-size:.82rem;color:var(--muted)}
+.tabs{display:flex;gap:8px;margin-bottom:12px} .tab{flex:1} .tab.active{background:var(--blue);color:#fff}
+@media(max-width:700px){.grid,.grid4{grid-template-columns:1fr} .match-grid{grid-template-columns:1fr} .vs{padding:2px} .round{min-width:230px}}
+</style>
+<script>
+(() => { if ((localStorage.getItem('theme')||'dark') === 'light') document.documentElement.classList.add('light-mode'); })();
+</script>
+</head>
+<body>
+<div class="container">
+<header>
+<img src="logo.png" alt="Logo">
+<h1>🏆 Torneos</h1>
+<div class="subtitle">Gestión y seguimiento de competencias</div>
+</header>
+
+<div class="row">
+<button class="btn secondary" onclick="window.location.href='lobby.html'">← Volver al Lobby</button>
+<button class="btn secondary" onclick="cargarTodo()">🔄 Actualizar</button>
+</div>
+
+<div id="estadoSesion" class="card"></div>
+
+<div class="card" id="crearCard">
+<div class="row"><h2 style="font-size:1.05rem">➕ Crear torneo</h2><span class="small">Administración</span></div>
+<form id="formCrear" class="form" style="margin-top:10px">
+<div class="grid">
+<div><label>Nombre</label><input id="nombre" required placeholder="Ej. Torneo Jueves"></div>
+<div><label>Puntos por partida</label><input id="limite" type="number" min="50" step="50" value="200" required></div>
+</div>
+<div><label>Modalidad</label>
+<select id="modalidad">
+<option value="parejas">👫 Por Parejas</option>
+<option value="equipo_ab">🔵🔴 Equipo A vs B</option>
+<option value="rotando_frente">🔄 Rotando Frente</option>
+<option value="muerte_subita">☠️ Muerte Súbita</option>
+</select>
+</div>
+<div class="grid">
+<div><label>Fecha de inicio</label><input id="fecha" type="datetime-local"></div>
+<div><label>Estado inicial</label><select id="estado"><option value="inscripciones">Inscripciones abiertas</option><option value="borrador">Borrador</option></select></div>
+</div>
+<div><label>Descripción</label><textarea id="descripcion" placeholder="Reglas o detalles"></textarea></div>
+<button class="btn green" type="submit">Crear torneo</button>
+</form>
+</div>
+
+<div class="card">
+<div class="row"><h2 style="font-size:1.05rem">📋 Torneos</h2><span id="contador" class="small"></span></div>
+<div id="listaTorneos"></div>
+</div>
+
+<div class="card hidden" id="detalleCard">
+<div class="row">
+<div>
+<h2 id="detalleTitulo" style="font-size:1.2rem"></h2>
+<div id="detalleSub" class="small"></div>
+</div>
+<span id="detalleEstado" class="badge"></span>
+</div>
+
+<div id="accionesTorneo" style="margin-top:10px"></div>
+
+<div id="inscripcionBox" class="card" style="margin-top:12px;padding:12px;background:var(--sub)">
+<h3 style="font-size:.95rem">👥 Inscripciones</h3>
+<div class="grid" style="margin-top:8px">
+<div><label>Jugador</label><select id="jugadorSeleccionado"></select></div>
+<div style="display:flex;align-items:end"><button class="btn green" id="btnAgregarJugador">➕ Inscribir jugador</button></div>
+</div>
+<div id="listaParticipantes" style="margin-top:10px"></div>
+</div>
+
+<div id="bracketBox" class="hidden" style="margin-top:12px">
+<h3 style="font-size:1rem;margin-bottom:8px">🏆 Cuadro de eliminación</h3>
+<div class="bracket" id="bracket"></div>
+</div>
+</div>
+</div>
+
+<script>
+    const SUPABASE_URL = 'https://kzbslfwupzwczmjqfjem.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6YnNsZnd1cHp3Y3ptanFmamVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDI1MzksImV4cCI6MjEwMjcxODUzOX0.qeeh2FV3zKRet-jRMVvJUwBm9jYHsLbWSYWIao574qc';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let usuario = null;
+    let perfil = null;
+    let esAdmin = false;
+    let torneoActual = null;
+    let torneos = [];
+
+    function esc(v) {
+    return String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+    }
+
+    function modalidadTexto(m) {
+    return {parejas:'👫 Por Parejas',equipo_ab:'🔵🔴 Equipo A vs B',rotando_frente:'🔄 Rotando Frente',muerte_subita:'☠️ Muerte Súbita'}[m]||m;
+    }
+
+    function estadoTexto(e) {
+    return {borrador:'Borrador',inscripciones:'Inscripciones',en_curso:'En curso',finalizado:'Finalizado',cancelado:'Cancelado'}[e]||e;
+    }
+
+    async function inicializar() {
+    const {data:{session}} = await supabase.auth.getSession();
+    if(!session) {
+        document.getElementById('estadoSesion').innerHTML='<div class="notice">Debes iniciar sesión para gestionar torneos.</div>';
+        document.getElementById('crearCard').classList.add('hidden');
+    } else {
+        usuario=session.user;
+        const {data:p} = await supabase.from('perfiles').select('id,username,nombre_completo,rol').eq('auth_user_id',session.user.id).single();
+        perfil=p||null;
+        const rol=(p?.rol||'jugador').toString().toUpperCase();
+        esAdmin=['ADMIN','ADMINISTRADOR','SUPERADMIN','SUPER_ADMIN','SUPERUSER','SUPERUSUARIO'].includes(rol);
+        document.getElementById('estadoSesion').innerHTML=`<div class="row"><div><strong>👤 ${esc(p?.username||p?.nombre_completo||session.user.email)}</strong><div class="small">Rol: ${esc(rol)}</div></div><span class="badge ${esAdmin?'en_curso':'inscripciones'}">${esAdmin?'ADMINISTRADOR':'JUGADOR'}</span></div>`;
+        document.getElementById('crearCard').classList.toggle('hidden',!esAdmin);
+    }
+    await cargarTodo();
+    const id=new URLSearchParams(location.search).get('torneo');
+    if(id) await abrirTorneo(id);
+    }
+
+    async function cargarTodo() {
+    const {data,error}=await supabase.from('torneos').select('*').order('fecha_inicio',{ascending:true,nullsFirst:false});
+    if(error) {
+        document.getElementById('listaTorneos').innerHTML='<div class="notice">No se pudieron cargar los torneos: '+esc(error.message)+'</div>';
+        return;
+    }
+    torneos=data||[];
+    document.getElementById('contador').textContent=`${torneos.length} registro(s)`;
+    const box=document.getElementById('listaTorneos');
+    if(!torneos.length) {
+        box.innerHTML='<div class="notice">Todavía no hay torneos creados.</div>';
+    } else {
+        box.innerHTML=torneos.map(t=>`
+        <div class="torneo-item">
+        <div class="row">
+        <div><strong>${esc(t.nombre)}</strong><div class="small">${modalidadTexto(t.modalidad)} · ${t.limite_puntos} puntos</div></div>
+        <span class="badge ${t.estado}">${estadoTexto(t.estado)}</span>
+        </div>
+        ${t.fecha_inicio?`<div class="small" style="margin-top:5px">📅 ${new Date(t.fecha_inicio).toLocaleString('es-DO')}</div>`:''}
+        <div style="margin-top:9px"><button class="btn secondary" onclick="abrirTorneo('${t.id}')">Ver / gestionar</button></div>
+        </div>`).join('');
+    }
+    }
+
+    async function abrirTorneo(id) {
+    const {data,error}=await supabase.from('torneos').select('*').eq('id',id).single();
+    if(error || !data) return alert('No se encontró el torneo.');
+    torneoActual=data;
+    history.replaceState(null,'','torneos.html?torneo='+encodeURIComponent(id));
+    document.getElementById('detalleCard').classList.remove('hidden');
+    document.getElementById('detalleTitulo').textContent=torneoActual.nombre;
+    document.getElementById('detalleSub').textContent=modalidadTexto(torneoActual.modalidad)+' · '+torneoActual.limite_puntos+' puntos';
+    const st=document.getElementById('detalleEstado'); st.className='badge '+torneoActual.estado; st.textContent=estadoTexto(torneoActual.estado);
+    renderAcciones();
+    await cargarParticipantes();
+    await cargarBrackets();
+    }
+
+    function renderAcciones() {
+    const a=document.getElementById('accionesTorneo');
+    if(torneoActual.modalidad!=='parejas') {
+        a.innerHTML='<div class="notice">Las otras modalidades están preparadas en la estructura del sistema y las desarrollaremos después. Esta pantalla está activa primero para <strong>Por Parejas</strong>.</div>';
+        return;
+    }
+    if(esAdmin && ['borrador','inscripciones'].includes(torneoActual.estado)) {
+        a.innerHTML='<button class="btn green" onclick="generarCuadro()">🎲 Formar parejas y generar cuadro</button>';
+    } else if(torneoActual.estado==='en_curso') {
+        a.innerHTML='<div class="notice">Torneo en curso. Las mesas del cuadro se abren desde cada enfrentamiento.</div>';
+    } else if(torneoActual.estado==='finalizado') {
+        a.innerHTML='<div class="notice">🏆 Torneo finalizado.</div>';
+    } else {
+        a.innerHTML='';
+    }
+    }
+
+    async function cargarParticipantes() {
+    const {data:parts,error}=await supabase
+        .from('torneo_participantes')
+        .select('id,jugador_id,estado,seed,perfiles(username,nombre_completo,elo)')
+        .eq('torneo_id',torneoActual.id)
+        .order('created_at',{ascending:true});
+    if(error) { console.error(error); return; }
+    const nombres=(parts||[]).map(x=>x.jugador_id);
+    const box=document.getElementById('listaParticipantes');
+    box.innerHTML=parts.length?parts.map((p,i)=>`<div class="torneo-item" style="margin-top:6px"><div class="row"><span>${i+1}. ${esc(p.perfiles?.username||p.perfiles?.nombre_completo||'Jugador')}</span><span class="small">Elo ${p.perfiles?.elo??1200} · ${esc(p.estado)}</span></div></div>`).join(''):'<div class="small" style="margin-top:8px">No hay jugadores inscritos.</div>';
+
+    if(esAdmin && ['borrador','inscripciones'].includes(torneoActual.estado)) {
+        const {data:players}=await supabase.from('perfiles').select('id,username,nombre_completo').eq('estado','aprobado').order('username');
+        const sel=document.getElementById('jugadorSeleccionado');
+        sel.innerHTML='<option value="">Seleccionar jugador...</option>'+(players||[]).filter(p=>!nombres.includes(p.id)).map(p=>`<option value="${p.id}">${esc(p.username||p.nombre_completo)}</option>`).join('');
+        document.getElementById('btnAgregarJugador').classList.remove('hidden');
+    } else {
+        document.getElementById('jugadorSeleccionado').innerHTML='';
+        document.getElementById('btnAgregarJugador').classList.add('hidden');
+    }
+    }
+
+    document.getElementById('btnAgregarJugador').addEventListener('click',async()=>{
+    const jugador_id=document.getElementById('jugadorSeleccionado').value;
+    if(!jugador_id || !torneoActual) return;
+    const {error}=await supabase.from('torneo_participantes').insert([{torneo_id:torneoActual.id,jugador_id,estado:'inscrito'}]);
+    if(error) return alert('No se pudo inscribir: '+error.message);
+    await cargarParticipantes();
+    });
+
+    async function generarCuadro() {
+    if(!torneoActual || !esAdmin) return;
+    if(torneoActual.modalidad!=='parejas') return;
+    if(!confirm('Se formarán las parejas al azar y se generará el cuadro. Esto no podrá deshacerse desde esta pantalla. ¿Continuar?')) return;
+
+    const {data,error}=await supabase.rpc('generar_torneo_parejas',{p_torneo_id:torneoActual.id});
+    if(error || data?.success===false) {
+        alert('No se pudo generar el cuadro: '+(error?.message||data?.error||'Error desconocido'));
+        return;
+    }
+    alert(data.mensaje||'Cuadro generado.');
+    await abrirTorneo(torneoActual.id);
+    }
+
+    async function cargarBrackets() {
+    if(!torneoActual) return;
+    const {data:rondas,error}=await supabase.from('torneo_rondas')
+        .select('id,numero,nombre,estado')
+        .eq('torneo_id',torneoActual.id)
+        .order('numero');
+    const bracket=document.getElementById('bracket');
+    const box=document.getElementById('bracketBox');
+    if(error || !rondas || !rondas.length) {
+        box.classList.add('hidden');
+        return;
+    }
+    box.classList.remove('hidden');
+    let html='';
+    for(const r of rondas) {
+        const {data:matches}=await supabase.from('torneo_enfrentamientos')
+        .select(`
+        id,numero,estado,mesa_id,ganador_id,puntos_ganador,puntos_perdedor,
+        torneo_enfrentamiento_equipos(lado,equipo_id,torneo_equipos(id,nombre,torneo_equipo_jugadores(jugador_id,perfiles(username,nombre_completo))))
+        `)
+        .eq('ronda_id',r.id)
+        .order('numero');
+        html+=`<div class="round"><h3>${esc(r.nombre||('Ronda '+r.numero))}</h3>`;
+        for(const m of (matches||[])) {
+        const teams={1:null,2:null};
+        (m.torneo_enfrentamiento_equipos||[]).forEach(te=>teams[te.lado]=te.torneo_equipos);
+        html+=matchHtml(m,teams);
+        }
+        html+='</div>';
+    }
+    bracket.innerHTML=html;
+    }
+
+    function matchHtml(m,teams) {
+    const t1=teams[1], t2=teams[2];
+    const nombres=(t)=>{
+        if(!t) return 'Esperando rival...';
+        const js=(t.torneo_equipo_jugadores||[]).map(x=>x.perfiles?.username||x.perfiles?.nombre_completo||'Jugador');
+        return `${esc(t.nombre)}<div class="players">${js.map(esc).join('<br>')}</div>`;
+    };
+    const cls1=m.ganador_id===t1?.id?'team win':'team';
+    const cls2=m.ganador_id===t2?.id?'team win':'team';
+    let accion='';
+    if(esAdmin && m.estado==='pendiente' && t1 && t2) accion=`<button class="btn amber" style="width:100%;margin-top:8px" onclick="abrirMesa('${m.id}')">🎲 Abrir mesa</button>`;
+    if(m.estado==='en_curso' && m.mesa_id) accion=`<button class="btn" style="width:100%;margin-top:8px" onclick="window.location.href='mesa.html?id=${m.mesa_id}'">🎯 Ver mesa</button>`;
+    if(m.estado==='finalizado') accion=`<div class="small" style="margin-top:7px;text-align:center">✅ Finalizado · ${m.puntos_ganador??''} - ${m.puntos_perdedor??''}</div>`;
+    return `<div class="match">
+        <div class="match-grid">
+        <div class="${cls1}">${nombres(t1)}</div>
+        <div class="vs">VS</div>
+        <div class="${cls2}">${nombres(t2)}</div>
+        </div>${accion}
+    </div>`;
+    }
+
+    async function abrirMesa(matchId) {
+    const {data,error}=await supabase.rpc('abrir_enfrentamiento_torneo',{p_enfrentamiento_id:matchId});
+    if(error || data?.success===false) {
+        alert('No se pudo abrir la mesa: '+(error?.message||data?.error||'Error'));
+        return;
+    }
+    window.location.href='mesa.html?id='+encodeURIComponent(data.mesa_id);
+    }
+
+    supabase
+        .channel('torneos-fase2-live')
+        .on('postgres_changes',{event:'*',schema:'public',table:'torneos'},()=>cargarTodo())
+        .on('postgres_changes',{event:'*',schema:'public',table:'torneo_participantes'},()=>torneoActual&&cargarParticipantes())
+        .on('postgres_changes',{event:'*',schema:'public',table:'torneo_rondas'},()=>torneoActual&&cargarBrackets())
+        .on('postgres_changes',{event:'*',schema:'public',table:'torneo_enfrentamientos'},()=>torneoActual&&cargarBrackets())
+        .on('postgres_changes',{event:'*',schema:'public',table:'torneo_enfrentamiento_equipos'},()=>torneoActual&&cargarBrackets())
+        .subscribe();
+
+    window.addEventListener('DOMContentLoaded',inicializar);
+</script>
+</body>
+</html>
