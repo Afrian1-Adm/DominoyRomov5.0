@@ -1,4 +1,4 @@
-const CACHE_NAME = 'club-domino-v32';
+const CACHE_NAME = 'club-domino-v33';
 
 const urlsToCache = [
     './',
